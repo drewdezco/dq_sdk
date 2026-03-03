@@ -82,6 +82,18 @@ class DataQualityChecker:
             self.df, self.results, column, min_date, max_date
         )
 
+    def expect_column_values_to_be_recent(self, column, max_age_days, reference_date=None):
+        """Expect date values in column to be within the last max_age_days (Timeliness)."""
+        exp.expect_column_values_to_be_recent(
+            self.df, self.results, column, max_age_days, reference_date=reference_date
+        )
+
+    def expect_column_values_to_match_reference(self, column, reference_series_or_set):
+        """Expect column values to match a reference set or Series (Accuracy)."""
+        exp.expect_column_values_to_match_reference(
+            self.df, self.results, column, reference_series_or_set
+        )
+
     # -------- Multi-column expectations --------
     def expect_columns_values_to_not_be_null(self, columns):
         exp.expect_columns_values_to_not_be_null(self.df, self.results, columns)
@@ -151,14 +163,24 @@ class DataQualityChecker:
         """Return results as a pandas DataFrame."""
         return pd.DataFrame(self.results)
 
-    def get_comprehensive_results(self, title: str = "Data Quality Report"):
-        """Return full snapshot dict (metadata, key_metrics, critical_data_elements, etc.)."""
+    def get_comprehensive_results(
+        self,
+        title: str = "Data Quality Report",
+        dimensions_filter: list | None = None,
+    ):
+        """
+        Return full snapshot dict (metadata, key_metrics, per_dimension_scores, etc.).
+        When dimensions_filter is provided, only those dimensions contribute to
+        overall_health_score and per_dimension_scores. Use data_quality.dimensions.DIMENSIONS
+        for valid dimension names.
+        """
         return rep.get_comprehensive_results(
             self.df,
             self.results,
             self.dataset_name,
             self.user_specified_critical_columns,
             title=title,
+            dimensions_filter=dimensions_filter,
         )
 
     def save_comprehensive_results_to_csv(
@@ -166,8 +188,13 @@ class DataQualityChecker:
         title: str = "Data Quality Report",
         csv_filename: str = "data_quality_history.csv",
         include_field_summary: bool = True,
+        dimensions_filter: list | None = None,
     ):
-        """Append one row to csv_filename; optionally save field summary to a second CSV."""
+        """
+        Append one row to csv_filename; optionally save field summary to a second CSV.
+        When dimensions_filter is provided, only those dimensions contribute to the score.
+        Use data_quality.dimensions.DIMENSIONS for valid dimension names.
+        """
         return rep.save_comprehensive_results_to_csv(
             self.df,
             self.results,
@@ -176,6 +203,7 @@ class DataQualityChecker:
             title=title,
             csv_filename=csv_filename,
             include_field_summary=include_field_summary,
+            dimensions_filter=dimensions_filter,
         )
 
     def save_field_summary_to_csv(

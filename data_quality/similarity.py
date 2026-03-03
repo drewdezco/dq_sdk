@@ -83,6 +83,7 @@ def analyze_column_similarity_levenshtein(
         "rule": f"levenshtein similarity (threshold: {similarity_threshold})",
         "success_rate": similarity_percentage,
         "details": similarity_analysis,
+        "dimension": "Consistency",
     })
     return similarity_analysis
 

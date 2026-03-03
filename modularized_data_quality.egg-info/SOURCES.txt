@@ -2,6 +2,7 @@ README.md
 pyproject.toml
 data_quality/__init__.py
 data_quality/checker.py
+data_quality/dimensions.py
 data_quality/expectations.py
 data_quality/reporting.py
 data_quality/similarity.py

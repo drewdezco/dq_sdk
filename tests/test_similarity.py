@@ -11,6 +11,7 @@ def test_analyze_column_similarity_levenshtein_identical():
     out = sim.analyze_column_similarity_levenshtein(df, results, "a", "b", similarity_threshold=0.8)
     assert len(results) == 1
     assert results[0]["column"] == "a vs b"
+    assert results[0]["dimension"] == "Consistency"
     assert "levenshtein similarity" in results[0]["rule"]
     assert out["total_comparisons"] == 3
     assert out["similarity_percentage"] == 100.0

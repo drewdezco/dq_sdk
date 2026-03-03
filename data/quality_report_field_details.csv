@@ -11,3 +11,9 @@ timestamp,title,dataset_name,column_name,data_type,total_count,null_count,distin
 2026-03-03T10:54:50.374750,Sample Data Quality Report,Sample Business Data,status,Str,1000,86,3,91.4,0.3,95.0,False,,,,,
 2026-03-03T10:54:50.374750,Sample Data Quality Report,Sample Business Data,amount,Decimal,1000,92,907,90.8,90.7,100.0,False,4973.06,4937.65,2874.14,18.67,9989.53
 2026-03-03T10:54:50.374750,Sample Data Quality Report,Sample Business Data,notes,Decimal,1000,1000,0,0.0,0.0,0.0,False,,,,,
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,id,Integer,1000,0,1000,100.0,100.0,100.0,True,500.5,500.5,288.82,1,1000
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,customer_id,Str,1000,108,892,89.2,89.2,95.0,True,,,,,
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,region,Str,1000,89,4,91.1,0.4,95.0,False,,,,,
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,status,Str,1000,86,3,91.4,0.3,95.0,False,,,,,
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,amount,Decimal,1000,92,907,90.8,90.7,100.0,False,4973.06,4937.65,2874.14,18.67,9989.53
+2026-03-03T11:20:33.230168,Sample Data Quality Report,Sample Business Data,notes,Decimal,1000,1000,0,0.0,0.0,0.0,False,,,,,

@@ -9,13 +9,14 @@ import pandas as pd
 from data_quality.utils import normalize_columns
 
 
-def _record(results, column, rule, success_rate, details):
-    """Append a result dict to the results list."""
+def _record(results, column, rule, success_rate, details, dimension):
+    """Append a result dict to the results list. dimension must be one of data_quality.dimensions.DIMENSIONS."""
     results.append({
         "column": column,
         "rule": rule,
         "success_rate": success_rate,
         "details": details,
+        "dimension": dimension,
     })
 
 
@@ -27,6 +28,7 @@ def expect_column_values_to_not_be_null(df, results, column):
     _record(
         results, column, "not null", success_rate,
         {"total": total, "passed": passed, "failed": missing},
+        "Completeness",
     )
 
 
@@ -40,6 +42,7 @@ def expect_column_values_to_be_unique(df, results, column):
     _record(
         results, column, "unique", success_rate,
         {"total": total, "passed": passed, "failed": failed},
+        "Uniqueness",
     )
 
 
@@ -52,6 +55,7 @@ def expect_column_values_to_be_in_set(df, results, column, allowed_values):
     _record(
         results, column, "in allowed set", success_rate,
         {"total": total, "passed": passed, "failed": failed, "allowed_values": allowed_values},
+        "Validity",
     )
 
 
@@ -68,6 +72,7 @@ def expect_column_values_to_match_regex(df, results, column, pattern):
     _record(
         results, column, "matches regex", success_rate,
         {"total": total, "passed": passed, "failed": failed, "pattern": pattern},
+        "Validity",
     )
 
 
@@ -83,6 +88,7 @@ def expect_column_values_to_be_in_range(df, results, column, min_val, max_val):
     _record(
         results, column, f"in range {min_val}-{max_val}", success_rate,
         {"total": total, "passed": passed, "failed": failed, "range": (min_val, max_val)},
+        "Validity",
     )
 
 
@@ -112,6 +118,50 @@ def expect_column_values_to_be_in_date_range(df, results, column, min_date, max_
     _record(
         results, column, "in date range", success_rate,
         {"total": total, "passed": passed, "failed": out_of_range, "range": (min_date, max_date)},
+        "Validity",
+    )
+
+
+def expect_column_values_to_be_recent(df, results, column, max_age_days, reference_date=None):
+    """
+    Check that non-null date values in the column are within the last max_age_days.
+    Rows with date older than max_age_days (relative to reference_date or today) fail.
+    Dimension: Timeliness.
+    """
+    dates = pd.to_datetime(df[column], errors="coerce")
+    ref = pd.Timestamp(reference_date) if reference_date is not None else pd.Timestamp.now()
+    cutoff = ref - pd.Timedelta(days=max_age_days)
+    total = len(df)
+    null_count = dates.isnull().sum()
+    too_old = (dates.dropna() < cutoff).sum()
+    failed = null_count + too_old
+    passed = total - failed
+    success_rate = (passed / total) * 100 if total > 0 else 0
+    _record(
+        results, column, f"recent within {max_age_days} days", success_rate,
+        {"total": total, "passed": passed, "failed": failed, "max_age_days": max_age_days, "reference_date": str(ref)},
+        "Timeliness",
+    )
+
+
+def expect_column_values_to_match_reference(df, results, column, reference_series_or_set):
+    """
+    Check that values in the column match a reference set or Series (e.g. allowed ids from a golden table).
+    Dimension: Accuracy.
+    """
+    if hasattr(reference_series_or_set, "dropna"):
+        allowed = set(reference_series_or_set.dropna().unique())
+    else:
+        allowed = set(reference_series_or_set)
+    total = len(df[column])
+    invalid_mask = ~df[column].isin(allowed)
+    failed = invalid_mask.sum()
+    passed = total - failed
+    success_rate = (passed / total) * 100 if total > 0 else 0
+    _record(
+        results, column, "match reference", success_rate,
+        {"total": total, "passed": passed, "failed": failed, "reference_count": len(allowed)},
+        "Accuracy",
     )
 
 
@@ -130,6 +180,7 @@ def expect_columns_values_to_not_be_null(df, results, columns):
     _record(
         results, column_str, "all not null", success_rate,
         {"total": total, "passed": passed, "failed": failed, "columns": columns},
+        "Completeness",
     )
 
 
@@ -145,6 +196,7 @@ def expect_columns_values_to_be_unique(df, results, columns):
     _record(
         results, column_str, "unique combination", success_rate,
         {"total": total, "passed": passed, "failed": failed, "columns": columns},
+        "Uniqueness",
     )
 
 
@@ -173,6 +225,7 @@ def expect_columns_values_to_be_in_sets(df, results, columns, allowed_values):
     _record(
         results, column_str, "all in allowed sets", success_rate,
         {"total": total, "passed": passed, "failed": failed, "columns": columns, "allowed_values": allowed_values_dict},
+        "Validity",
     )
 
 
@@ -198,6 +251,7 @@ def expect_columns_values_to_match_patterns(df, results, columns, patterns_dict)
     _record(
         results, column_str, "all match patterns", success_rate,
         {"total": total, "passed": passed, "failed": failed, "columns": columns, "patterns": patterns_dict},
+        "Validity",
     )
 
 
@@ -221,4 +275,5 @@ def expect_columns_values_to_be_in_ranges(df, results, columns, ranges_dict):
     _record(
         results, column_str, "all in ranges", success_rate,
         {"total": total, "passed": passed, "failed": failed, "columns": columns, "ranges": ranges_dict},
+        "Validity",
     )

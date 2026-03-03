@@ -23,18 +23,20 @@ def empty_results():
 
 @pytest.fixture
 def sample_results():
-    """List of 1-2 result dicts (column, rule, success_rate, details) for reporting tests."""
+    """List of 1-2 result dicts (column, rule, success_rate, details, dimension) for reporting tests."""
     return [
         {
             "column": "id",
             "rule": "not null",
             "success_rate": 100.0,
             "details": {"total": 5, "passed": 5, "failed": 0},
+            "dimension": "Completeness",
         },
         {
             "column": "name",
             "rule": "unique",
             "success_rate": 100.0,
             "details": {"total": 5, "passed": 5, "failed": 0},
+            "dimension": "Uniqueness",
         },
     ]

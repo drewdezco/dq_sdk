@@ -8,6 +8,7 @@ import csv
 import os
 from datetime import datetime
 import pandas as pd
+from data_quality.dimensions import DIMENSIONS
 from data_quality.utils import (
     classify_data_type,
     calculate_quality_scores,
@@ -21,19 +22,35 @@ def get_comprehensive_results(
     dataset_name,
     user_specified_critical_columns,
     title="Data Quality Report",
+    dimensions_filter=None,
 ):
     """
     Build a comprehensive data quality snapshot (metadata, key_metrics, overall_data_quality,
-    critical_data_elements, other_fields, column_type_distribution, rule_execution_summary,
-    detailed_results). Returns a dict or {"error": "..."} if no df.
+    per_dimension_scores, critical_data_elements, other_fields, column_type_distribution,
+    rule_execution_summary, detailed_results). Returns a dict or {"error": "..."} if no df.
+
+    Overall health score is the mean of per-dimension scores, only for dimensions that have
+    at least one rule in the current run. If dimensions_filter is provided (list of
+    dimension names), only those dimensions contribute to per_dimension_scores and
+    overall_health_score; dimensions not present in results are omitted.
     """
     if df is None:
         return {"error": "No dataframe available for analysis"}
     df_results = pd.DataFrame(results)
     total_checks = len(df_results)
+
+    # Per-dimension scores: average success_rate per dimension (only results with "dimension" key)
+    dimension_rates = {}
+    if "dimension" in df_results.columns and "success_rate" in df_results.columns:
+        for dim, group in df_results.dropna(subset=["dimension"]).groupby("dimension"):
+            if dimensions_filter is not None and dim not in dimensions_filter:
+                continue
+            dimension_rates[dim] = round(group["success_rate"].mean(), 1)
+    per_dimension_scores = dict(dimension_rates)
+
     avg_pass_rate = (
-        df_results["success_rate"].mean()
-        if total_checks > 0 and "success_rate" in df_results.columns
+        sum(per_dimension_scores.values()) / len(per_dimension_scores)
+        if per_dimension_scores
         else 0
     )
     total_rows = len(df)
@@ -132,6 +149,7 @@ def get_comprehensive_results(
             "total_rules_executed": total_checks,
             "overall_health_score": round(avg_pass_rate, 1),
             "overall_health_status": get_health_status(avg_pass_rate),
+            "per_dimension_scores": per_dimension_scores,
         },
         "overall_data_quality": {
             "completeness": round(overall_completeness, 1),
@@ -205,6 +223,9 @@ def flatten_comprehensive_results(results_dict):
         "overall_health_score": key_metrics["overall_health_score"],
         "overall_health_status": key_metrics["overall_health_status"],
     })
+    dim_scores = key_metrics.get("per_dimension_scores", {})
+    for dim in DIMENSIONS:
+        flattened[f"dimension_score_{dim}"] = dim_scores.get(dim, "")
     quality = results_dict["overall_data_quality"]
     flattened.update({
         "overall_completeness": quality["completeness"],
@@ -280,13 +301,16 @@ def save_comprehensive_results_to_csv(
     title="Data Quality Report",
     csv_filename="data_quality_history.csv",
     include_field_summary=True,
+    dimensions_filter=None,
 ):
     """
     Append one row of comprehensive metrics to csv_filename. If include_field_summary,
     also call save_field_summary_to_csv with a derived filename. Returns (csv_filename, field_csv_filename or csv_filename).
+    When dimensions_filter is provided, only those dimensions contribute to overall_health_score and per_dimension_scores.
     """
     comprehensive = get_comprehensive_results(
-        df, results, dataset_name, user_specified_critical_columns, title=title
+        df, results, dataset_name, user_specified_critical_columns,
+        title=title, dimensions_filter=dimensions_filter,
     )
     if "error" in comprehensive:
         print(f"Error: {comprehensive['error']}")

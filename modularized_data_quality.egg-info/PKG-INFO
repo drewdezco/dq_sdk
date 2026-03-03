@@ -66,6 +66,28 @@ checker.save_comprehensive_results_to_csv(
 )
 ```
 
+## Data quality dimensions and health score
+
+The checker uses six standard dimensions: **Accuracy**, **Completeness**, **Consistency**, **Timeliness**, **Validity**, and **Uniqueness**. Each rule is tagged with one dimension. The **overall health score** is the average of **per-dimension scores**, and only dimensions that have at least one rule in the current run are included. So if you run only Completeness and Uniqueness rules, the overall score is the average of those two dimensions’ scores.
+
+You can restrict which dimensions contribute to the score by passing **dimensions_filter** (a list of dimension names) to `get_comprehensive_results` or `save_comprehensive_results_to_csv`. Valid names are in `data_quality.dimensions.DIMENSIONS`, or use `from data_quality import DIMENSIONS`.
+
+```python
+from data_quality import DataQualityChecker, DIMENSIONS
+
+checker = DataQualityChecker(df, dataset_name="My Dataset")
+checker.expect_column_values_to_not_be_null("id")
+checker.expect_column_values_to_be_unique("id")
+
+# Score from all dimensions present in results (e.g. Completeness, Uniqueness)
+report = checker.get_comprehensive_results()
+
+# Score only from Completeness and Validity
+report = checker.get_comprehensive_results(
+    dimensions_filter=["Completeness", "Validity"],
+)
+```
+
 ## Backward compatibility
 
 If you previously used:

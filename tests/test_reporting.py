@@ -23,6 +23,10 @@ def test_get_comprehensive_results_structure(sample_df, sample_results):
     assert "other_fields" in out
     assert "rule_execution_summary" in out
     assert "detailed_results" in out
+    assert "per_dimension_scores" in out["key_metrics"]
+    assert out["key_metrics"]["per_dimension_scores"]["Completeness"] == 100.0
+    assert out["key_metrics"]["per_dimension_scores"]["Uniqueness"] == 100.0
+    assert out["key_metrics"]["overall_health_score"] == 100.0
     assert out["key_metrics"]["total_records"] == len(sample_df)
     assert out["metadata"]["dataset_name"] == "TestDataset"
     assert out["metadata"]["title"] == "Test Report"
@@ -34,6 +38,30 @@ def test_get_comprehensive_results_df_none_returns_error():
     )
     assert "error" in out
     assert "dataframe" in out["error"].lower()
+
+
+def test_overall_health_score_is_mean_of_dimension_scores(sample_df):
+    """Overall score should be the average of per-dimension scores (only dimensions with rules)."""
+    results_two_dims = [
+        {"column": "id", "rule": "not null", "success_rate": 80.0, "details": {}, "dimension": "Completeness"},
+        {"column": "name", "rule": "unique", "success_rate": 100.0, "details": {}, "dimension": "Uniqueness"},
+    ]
+    out = rep.get_comprehensive_results(
+        sample_df, results_two_dims, "DS", [], title="T"
+    )
+    assert out["key_metrics"]["per_dimension_scores"]["Completeness"] == 80.0
+    assert out["key_metrics"]["per_dimension_scores"]["Uniqueness"] == 100.0
+    assert out["key_metrics"]["overall_health_score"] == 90.0
+
+
+def test_dimensions_filter_restricts_scoring(sample_df, sample_results):
+    """When dimensions_filter is set, only those dimensions contribute to per_dimension_scores and overall."""
+    out = rep.get_comprehensive_results(
+        sample_df, sample_results, "DS", [], title="T", dimensions_filter=["Completeness"]
+    )
+    assert list(out["key_metrics"]["per_dimension_scores"].keys()) == ["Completeness"]
+    assert out["key_metrics"]["per_dimension_scores"]["Completeness"] == 100.0
+    assert out["key_metrics"]["overall_health_score"] == 100.0
 
 
 # -------- Unit: flatten_comprehensive_results --------
@@ -50,6 +78,8 @@ def test_flatten_comprehensive_results(sample_df, sample_results):
     assert flat["total_records"] == len(sample_df)
     assert "critical_avg_completeness" in flat
     assert "other_avg_completeness" in flat
+    assert "dimension_score_Completeness" in flat
+    assert "dimension_score_Uniqueness" in flat
 
 
 # -------- Integration: save_* to tmp_path --------
