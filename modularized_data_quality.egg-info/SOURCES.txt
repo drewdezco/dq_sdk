@@ -11,3 +11,9 @@ modularized_data_quality.egg-info/SOURCES.txt
 modularized_data_quality.egg-info/dependency_links.txt
 modularized_data_quality.egg-info/requires.txt
 modularized_data_quality.egg-info/top_level.txt
+tests/test_checker.py
+tests/test_e2e.py
+tests/test_expectations.py
+tests/test_reporting.py
+tests/test_similarity.py
+tests/test_utils.py

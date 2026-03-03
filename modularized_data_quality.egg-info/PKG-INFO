@@ -7,6 +7,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: pandas>=1.0
 Requires-Dist: numpy>=1.0
 Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
 
 # Modularized Data Quality Checker
 
@@ -50,7 +51,7 @@ checker.save_comprehensive_results_to_csv(
 
 ## Using on Databricks
 
-Use the same import and API. Install the package on the cluster (e.g. from a repo or wheel) or attach the project. For CSV output, pass a path writable from the cluster, for example:
+Use the same import. Install the package on the cluster (e.g. from a repo or wheel) or attach the project. For CSV output, pass a path writable from the cluster, for example:
 
 - `/dbfs/FileStore/your_folder/data_quality_history.csv`
 - A path on a mounted volume
@@ -75,10 +76,22 @@ from data_quality_checker import DataQualityChecker
 
 that still works: the root `data_quality_checker.py` re-exports `DataQualityChecker` from the `data_quality` package.
 
+## Testing
+
+Install dev dependencies and run the full suite:
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+To run only unit tests (exclude end-to-end): `pytest tests/ -v -m "not e2e"`.
+
 ## Layout and docs
 
 - **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow
+- **Leadership / shareable overview:** [docs/overview.html](docs/overview.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)
 
 ## Modularization (changelog)
 

@@ -16,11 +16,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
 
-[tool.pytest.ini.options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-markers = ["e2e: end-to-end tests full flow and CSV on disk"]
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["data_quality*"]
