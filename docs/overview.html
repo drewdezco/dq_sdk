@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Quality Checker — Overview</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 720px; margin: 0 auto; padding: 2rem; }
+    body { margin: 0; padding: 0 1.5rem 3rem; }
+    h1 { font-size: 1.75rem; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+    p { margin: 0.75rem 0; }
+    ul { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.25rem 0; }
+    code, pre { font-family: ui-monospace, monospace; font-size: 0.9em; background: #f5f5f5; padding: 0.15em 0.4em; border-radius: 3px; }
+    pre { display: block; padding: 1rem; overflow-x: auto; white-space: pre; margin: 1rem 0; }
+    pre code { padding: 0; background: none; }
+    a { color: #0066cc; }
+    strong { font-weight: 600; }
+    @media print { body { padding: 0; } pre { white-space: pre-wrap; } }
+  </style>
+</head>
+<body>
+  <h1>Modularized Data Quality Checker</h1>
+  <p>Run data quality expectations and similarity analysis on pandas DataFrames, then get or export results. Usable on your PC and in Databricks with the same code.</p>
+
+  <h2>Install</h2>
+  <p>From the project root:</p>
+  <pre><code>pip install -e .</code></pre>
+  <p>If you don't have a <code>pyproject.toml</code> or <code>setup.py</code>, add the project root to <code>PYTHONPATH</code> or run scripts from the project root so <code>import data_quality</code> resolves.</p>
+
+  <h2>Usage</h2>
+  <pre><code>import pandas as pd
+from data_quality import DataQualityChecker
+
+df = pd.read_csv("your_data.csv")
+checker = DataQualityChecker(df, dataset_name="My Dataset")
+
+# Run expectations
+checker.expect_column_values_to_not_be_null("id")
+checker.expect_column_values_to_be_unique("id")
+checker.expect_column_values_to_be_in_set("status", allowed_values=["active", "inactive"])
+
+# Get results
+results_df = checker.get_results()
+report = checker.get_comprehensive_results(title="Weekly Quality Report")
+
+# Save to CSV (pass a path that works in your environment)
+checker.save_comprehensive_results_to_csv(
+    title="Weekly Quality Report",
+    csv_filename="data_quality_history.csv",
+    include_field_summary=True,
+)</code></pre>
+
+  <h2>Using on Databricks</h2>
+  <p>Use the same import. Install the package on the cluster (e.g. from a repo or wheel) or attach the project. For CSV output, pass a path writable from the cluster, for example:</p>
+  <ul>
+    <li><code>/dbfs/FileStore/your_folder/data_quality_history.csv</code></li>
+    <li>A path on a mounted volume</li>
+  </ul>
+  <p>Example:</p>
+  <pre><code>from data_quality import DataQualityChecker
+# ... build checker and run expectations ...
+checker.save_comprehensive_results_to_csv(
+    csv_filename="/dbfs/FileStore/data_quality_history.csv",
+)</code></pre>
+
+  <h2>Backward compatibility</h2>
+  <p>If you previously used:</p>
+  <pre><code>from data_quality_checker import DataQualityChecker</code></pre>
+  <p>that still works: the root <code>data_quality_checker.py</code> re-exports <code>DataQualityChecker</code> from the <code>data_quality</code> package.</p>
+
+  <h2>Testing</h2>
+  <p>Install dev dependencies and run the full suite:</p>
+  <pre><code>pip install -e ".[dev]"
+pytest tests/ -v</code></pre>
+  <p>To run only unit tests (exclude end-to-end): <code>pytest tests/ -v -m "not e2e"</code>.</p>
+
+  <h2>Layout and docs</h2>
+  <ul>
+    <li><strong>Package:</strong> <code>data_quality/</code> — <code>checker.py</code>, <code>utils.py</code>, <code>expectations.py</code>, <code>similarity.py</code>, <code>reporting.py</code></li>
+    <li><strong>Architecture:</strong> <a href="ARCHITECTURE.md">docs/ARCHITECTURE.md</a> — module roles and data flow</li>
+  </ul>
+
+  <h2>Modularization (changelog)</h2>
+  <p>The original single-file <code>data_quality_checker.py</code> was split into a package while keeping the same public API:</p>
+  <ul>
+    <li><strong>utils.py</strong> — <code>normalize_columns</code>, Levenshtein helpers, <code>classify_data_type</code>, <code>calculate_quality_scores</code>, <code>is_critical_data_element</code></li>
+    <li><strong>expectations.py</strong> — All <code>expect_column_*</code> and <code>expect_columns_*</code> logic as functions <code>(df, results, ...)</code></li>
+    <li><strong>similarity.py</strong> — Levenshtein analysis and <code>get_similarity_summary_table</code> / <code>get_detailed_similarity_comparisons</code></li>
+    <li><strong>reporting.py</strong> — <code>get_comprehensive_results</code>, <code>save_comprehensive_results_to_csv</code>, <code>save_field_summary_to_csv</code>, <code>flatten_comprehensive_results</code></li>
+    <li><strong>checker.py</strong> — <code>DataQualityChecker</code> holds state and delegates to the above; includes <code>run_rules_from_json</code></li>
+  </ul>
+  <p>The root <code>data_quality_checker.py</code> is a thin re-export for backward compatibility.</p>
+</body>
+</html>

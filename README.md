@@ -1,0 +1,95 @@
+# Modularized Data Quality Checker
+
+Run data quality expectations and similarity analysis on pandas DataFrames, then get or export results. Usable on your PC and in Databricks with the same code.
+
+## Install
+
+From the project root:
+
+```bash
+pip install -e .
+```
+
+If you don't have a `pyproject.toml` or `setup.py`, add the project root to `PYTHONPATH` or run scripts from the project root so `import data_quality` resolves.
+
+## Usage
+
+```python
+import pandas as pd
+from data_quality import DataQualityChecker
+
+df = pd.read_csv("your_data.csv")
+checker = DataQualityChecker(df, dataset_name="My Dataset")
+
+# Run expectations
+checker.expect_column_values_to_not_be_null("id")
+checker.expect_column_values_to_be_unique("id")
+checker.expect_column_values_to_be_in_set("status", allowed_values=["active", "inactive"])
+
+# Get results
+results_df = checker.get_results()
+report = checker.get_comprehensive_results(title="Weekly Quality Report")
+
+# Save to CSV (pass a path that works in your environment)
+checker.save_comprehensive_results_to_csv(
+    title="Weekly Quality Report",
+    csv_filename="data_quality_history.csv",
+    include_field_summary=True,
+)
+```
+
+## Using on Databricks
+
+Use the same import. Install the package on the cluster (e.g. from a repo or wheel) or attach the project. For CSV output, pass a path writable from the cluster, for example:
+
+- `/dbfs/FileStore/your_folder/data_quality_history.csv`
+- A path on a mounted volume
+
+Example:
+
+```python
+from data_quality import DataQualityChecker
+# ... build checker and run expectations ...
+checker.save_comprehensive_results_to_csv(
+    csv_filename="/dbfs/FileStore/data_quality_history.csv",
+)
+```
+
+## Backward compatibility
+
+If you previously used:
+
+```python
+from data_quality_checker import DataQualityChecker
+```
+
+that still works: the root `data_quality_checker.py` re-exports `DataQualityChecker` from the `data_quality` package.
+
+## Testing
+
+Install dev dependencies and run the full suite:
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+To run only unit tests (exclude end-to-end): `pytest tests/ -v -m "not e2e"`.
+
+## Layout and docs
+
+- **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`
+- **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow
+- **Leadership / shareable overview:** [docs/overview.html](docs/overview.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)
+
+## Modularization (changelog)
+
+The original single-file `data_quality_checker.py` was split into a package while keeping the same public API:
+
+- **utils.py** — `normalize_columns`, Levenshtein helpers, `classify_data_type`, `calculate_quality_scores`, `is_critical_data_element`
+- **expectations.py** — All `expect_column_*` and `expect_columns_*` logic as functions `(df, results, ...)`
+- **similarity.py** — Levenshtein analysis and `get_similarity_summary_table` / `get_detailed_similarity_comparisons`
+- **reporting.py** — `get_comprehensive_results`, `save_comprehensive_results_to_csv`, `save_field_summary_to_csv`, `flatten_comprehensive_results`
+- **checker.py** — `DataQualityChecker` holds state and delegates to the above; includes `run_rules_from_json`
+
+The root `data_quality_checker.py` is a thin re-export for backward compatibility.
