@@ -3,6 +3,8 @@ DataQualityChecker: main facade that holds state (df, results, dataset_name, cri
 and delegates to expectations, similarity, and reporting modules.
 """
 
+from typing import Optional
+
 import pandas as pd
 from data_quality import expectations as exp
 from data_quality import similarity as sim
@@ -166,7 +168,7 @@ class DataQualityChecker:
     def get_comprehensive_results(
         self,
         title: str = "Data Quality Report",
-        dimensions_filter: list | None = None,
+        dimensions_filter: Optional[list] = None,
     ):
         """
         Return full snapshot dict (metadata, key_metrics, per_dimension_scores, etc.).
@@ -188,7 +190,7 @@ class DataQualityChecker:
         title: str = "Data Quality Report",
         csv_filename: str = "data_quality_history.csv",
         include_field_summary: bool = True,
-        dimensions_filter: list | None = None,
+        dimensions_filter: Optional[list] = None,
     ):
         """
         Append one row to csv_filename; optionally save field summary to a second CSV.
