@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validations and Dimensions Reference</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card: #fff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #0d6efd;
+      --border: #dee2e6;
+      --code-bg: #e9ecef;
+      --table-stripe: #f1f3f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 2.5rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text);
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    h4, h5, h6 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    ul, ol {
+      margin: 0 0 1rem;
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.35rem;
+    }
+    code {
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+    }
+    th {
+      background: var(--table-stripe);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.5rem 0 0.5rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--table-stripe);
+      color: var(--text-muted);
+    }
+    .mermaid {
+      margin: 1rem 0;
+      min-height: 120px;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="container">
+    <h1>Validations and dimensions reference</h1>
+<p>This document lists every data quality <strong>dimension</strong> and <strong>validation</strong> (expectation) used by the checker, with short definitions.</p>
+<h2>Dimensions</h2>
+<p>Each rule is tagged with one dimension. The <strong>overall health score</strong> is the average of <strong>per-dimension scores</strong> for dimensions that have at least one rule in the current run.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Accuracy</strong></td>
+<td>Data correctly represents the real-world object or event.</td>
+</tr>
+<tr>
+<td><strong>Completeness</strong></td>
+<td>All required data is present.</td>
+</tr>
+<tr>
+<td><strong>Consistency</strong></td>
+<td>Data is uniform across systems and datasets (e.g. column similarity).</td>
+</tr>
+<tr>
+<td><strong>Timeliness</strong></td>
+<td>Data is available when needed and up to date.</td>
+</tr>
+<tr>
+<td><strong>Validity</strong></td>
+<td>Data conforms to defined formats, rules, or constraints.</td>
+</tr>
+<tr>
+<td><strong>Uniqueness</strong></td>
+<td>No unintended duplicates exist.</td>
+</tr>
+</tbody>
+</table>
+<h2>Validations (expectations)</h2>
+<p>Available checks, grouped by dimension. Single-column methods take a column name; multi-column methods take a list of columns.</p>
+<h3>Completeness</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expect_column_values_to_not_be_null(column)</code></td>
+<td>No nulls in column.</td>
+</tr>
+<tr>
+<td><code>expect_columns_values_to_not_be_null(columns)</code></td>
+<td>No nulls in any of the columns (per row).</td>
+</tr>
+</tbody>
+</table>
+<h3>Uniqueness</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expect_column_values_to_be_unique(column)</code></td>
+<td>All values in column are unique.</td>
+</tr>
+<tr>
+<td><code>expect_columns_values_to_be_unique(columns)</code></td>
+<td>Combination of columns is unique.</td>
+</tr>
+</tbody>
+</table>
+<h3>Validity</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expect_column_values_to_be_in_set(column, allowed_values)</code></td>
+<td>Values are in an allowed set.</td>
+</tr>
+<tr>
+<td><code>expect_column_values_to_match_regex(column, pattern)</code></td>
+<td>Values match a regex pattern.</td>
+</tr>
+<tr>
+<td><code>expect_column_values_to_be_in_range(column, min_val, max_val)</code></td>
+<td>Numeric values are within min/max range.</td>
+</tr>
+<tr>
+<td><code>expect_column_values_to_be_in_date_range(column, min_date, max_date)</code></td>
+<td>Date values are within min/max date range.</td>
+</tr>
+<tr>
+<td><code>expect_columns_values_to_be_in_sets(columns, allowed_values)</code></td>
+<td>Per-column values are in their allowed sets.</td>
+</tr>
+<tr>
+<td><code>expect_columns_values_to_match_patterns(columns, patterns_dict)</code></td>
+<td>Per-column values match their regex patterns.</td>
+</tr>
+<tr>
+<td><code>expect_columns_values_to_be_in_ranges(columns, ranges_dict)</code></td>
+<td>Per-column numeric values are in their ranges.</td>
+</tr>
+</tbody>
+</table>
+<h3>Timeliness</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expect_column_values_to_be_recent(column, max_age_days, reference_date=None)</code></td>
+<td>Date values are within the last N days.</td>
+</tr>
+</tbody>
+</table>
+<h3>Accuracy</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>expect_column_values_to_match_reference(column, reference_series_or_set)</code></td>
+<td>Values match a reference set or Series.</td>
+</tr>
+</tbody>
+</table>
+<h3>Consistency</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>analyze_column_similarity_levenshtein(column1, column2, similarity_threshold=0.8)</code></td>
+<td>Levenshtein similarity between two columns (appends a Consistency result).</td>
+</tr>
+<tr>
+<td><code>reconcile_on_key(df_left, df_right, key_column, ...)</code></td>
+<td>Join quality and match rates (and optional similarity) when comparing two datasets on a key.</td>
+</tr>
+</tbody>
+</table>
+<h2>Running Expectations from JSON Config</h2>
+<p>You can run expectations from a JSON/dictionary config using <code>run_rules_from_json(rules)</code>. The JSON structure maps expectation method names to lists of parameter dictionaries:</p>
+<pre><code class="language-python">rules = {
+    &quot;expect_column_values_to_not_be_null&quot;: [
+        {&quot;column&quot;: &quot;id&quot;}
+    ],
+    &quot;expect_column_values_to_be_unique&quot;: [
+        {&quot;column&quot;: &quot;id&quot;}
+    ],
+    &quot;expect_column_values_to_be_in_set&quot;: [
+        {&quot;column&quot;: &quot;status&quot;, &quot;allowed_values&quot;: [&quot;active&quot;, &quot;inactive&quot;, &quot;pending&quot;]}
+    ],
+    &quot;expect_column_values_to_be_in_range&quot;: [
+        {&quot;column&quot;: &quot;score&quot;, &quot;min_val&quot;: 0, &quot;max_val&quot;: 100}
+    ]
+}
+
+checker = DataQualityChecker(df)
+checker.run_rules_from_json(rules)
+</code></pre>
+<p><strong>JSON Structure:</strong><br />
+- Top-level keys are expectation method names (e.g., <code>"expect_column_values_to_not_be_null"</code>)<br />
+- Each key maps to a list of parameter dictionaries<br />
+- Each parameter dict must include <code>"column"</code> and any other required parameters for that expectation type<br />
+- Multiple columns can use the same expectation type by adding multiple dicts to the list</p>
+<p><strong>Auto-generating JSON from suggestions:</strong></p>
+<pre><code class="language-python">from data_quality.suggestion import suggestions_to_json
+
+suggestions = checker.generate_suggestions()
+json_rules = suggestions_to_json(suggestions)
+checker.run_rules_from_json(json_rules)
+</code></pre>
+  </div>
+  
+</body>
+</html>

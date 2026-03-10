@@ -76,3 +76,14 @@ timestamp,title,dataset_name,column_name,data_type,total_count,null_count,distin
 2026-03-10T08:14:21.338530,Demo - All validations,Demo - All validations,category,Str,24,0,4,100.0,16.7,95.0,False,,,,,
 2026-03-10T08:14:21.338530,Demo - All validations,Demo - All validations,name_primary,Str,24,0,5,100.0,20.8,95.0,False,,,,,
 2026-03-10T08:14:21.338530,Demo - All validations,Demo - All validations,name_alt,Str,24,0,6,100.0,25.0,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,id,Integer,24,0,24,100.0,100.0,100.0,True,12.5,12.5,7.07,1,24
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,customer_id,Str,24,1,22,95.8,91.7,95.0,True,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,region,Str,24,0,5,100.0,20.8,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,status,Str,24,0,4,100.0,16.7,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,amount,Decimal,24,0,5,100.0,20.8,91.7,False,8512.46,200.0,40786.77,-1.0,200000.0
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,notes,Text/String,24,24,0,0.0,0.0,0.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,order_date,Date/Time,24,1,23,95.8,95.8,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,sku,Str,24,0,5,100.0,20.8,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,category,Str,24,0,4,100.0,16.7,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,name_primary,Str,24,0,5,100.0,20.8,95.0,False,,,,,
+2026-03-10T11:08:08.486393,Demo - All validations,Demo - All validations,name_alt,Str,24,0,6,100.0,25.0,95.0,False,,,,,

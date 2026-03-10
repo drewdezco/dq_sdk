@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Quality Package — Architecture</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card: #fff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #0d6efd;
+      --border: #dee2e6;
+      --code-bg: #e9ecef;
+      --table-stripe: #f1f3f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 2.5rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text);
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    h4, h5, h6 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    ul, ol {
+      margin: 0 0 1rem;
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.35rem;
+    }
+    code {
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+    }
+    th {
+      background: var(--table-stripe);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.5rem 0 0.5rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--table-stripe);
+      color: var(--text-muted);
+    }
+    .mermaid {
+      margin: 1rem 0;
+      min-height: 120px;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Data Quality Package — Architecture</h1>
+<h2>Overview</h2>
+<p>The codebase is split into a small package <code>data_quality</code> with four modules plus a facade class. No extra abstractions: expectations and similarity are plain functions that take <code>(df, results, ...)</code> and append to <code>results</code>. The checker holds state and delegates.</p>
+<h2>Module roles</h2>
+<ul>
+<li><strong>utils</strong> — Pure helpers: <code>normalize_columns</code>, <code>levenshtein_distance</code>, <code>levenshtein_ratio</code>, <code>classify_data_type</code>, <code>calculate_quality_scores</code>, <code>is_critical_data_element</code>. No dependency on other package modules.</li>
+<li><strong>expectations</strong> — Single- and multi-column expectation functions; each appends one result dict to <code>results</code>. Uses <code>utils.normalize_columns</code>.</li>
+<li><strong>similarity</strong> — Levenshtein analysis and summary/detail helpers; append to or read from <code>results</code>. Uses <code>utils</code> for Levenshtein.</li>
+<li><strong>reporting</strong> — <code>get_comprehensive_results</code>, <code>save_comprehensive_results_to_csv</code>, <code>save_field_summary_to_csv</code>, <code>flatten_comprehensive_results</code>. All take <code>(df, results, dataset_name, user_specified_critical_columns, ...)</code>. Use <code>utils</code> for classify/quality/critical.</li>
+<li><strong>checker</strong> — <code>DataQualityChecker</code>: holds <code>df</code>, <code>dataset_name</code>, <code>user_specified_critical_columns</code>, <code>results</code>. Methods call into expectations, similarity, and reporting; <code>run_rules_from_json</code> stays on the checker.</li>
+</ul>
+<h2>Data flow</h2>
+<div class="mermaid">
+flowchart LR
+  User[User] --> Checker[DataQualityChecker]
+  Checker --> Expectations[expectations functions]
+  Checker --> Similarity[similarity functions]
+  Checker --> Reporting[reporting]
+  Expectations --> Results[results list]
+  Similarity --> Results
+  Results --> Reporting
+  Reporting --> CSV[CSV or report dict]
+</div>
+<h2>Imports</h2>
+<ul>
+<li><code>utils</code> has no internal package imports.</li>
+<li><code>expectations</code> and <code>similarity</code> import <code>utils</code>.</li>
+<li><code>reporting</code> imports <code>utils</code>.</li>
+<li><code>checker</code> imports <code>expectations</code>, <code>similarity</code>, <code>reporting</code>.</li>
+</ul>
+<p>No cycles.</p>
+<h2>Multi-environment</h2>
+<p>Designed to run on across targeted systems (local PC, Databricks, Splunk) with the same code. Dependencies are standard library + pandas (and numpy for similarity). All file paths are passed in (e.g. <code>csv_filename</code>); use a path valid in your environment.</p>
+  </div>
+  <script>mermaid.initialize({ startOnLoad: true });</script>
+</body>
+</html>

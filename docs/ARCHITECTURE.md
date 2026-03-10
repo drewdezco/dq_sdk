@@ -37,4 +37,4 @@ No cycles.
 
 ## Multi-environment
 
-Designed to run on a local PC and on Databricks with the same code. Dependencies are standard library + pandas (and numpy for similarity). All file paths are passed in (e.g. `csv_filename`); use a path valid in your environment (e.g. `/dbfs/FileStore/...` on Databricks).
+Designed to run on across targeted systems (local PC, Databricks, Splunk) with the same code. Dependencies are standard library + pandas (and numpy for similarity). All file paths are passed in (e.g. <code>csv_filename</code>); use a path valid in your environment.

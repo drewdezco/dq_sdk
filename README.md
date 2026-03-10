@@ -361,7 +361,7 @@ python -m pytest tests/ -v
 
 ## Modularization (changelog)
 
-The original single-file `data_quality_checker.py` was split into a package while keeping the same public API:
+The original single-file `data_quality_checker.py` was split into a package while keeping the functionality:
 
 - **utils.py** — `normalize_columns`, Levenshtein helpers, `classify_data_type`, `calculate_quality_scores`, `is_critical_data_element`
 - **expectations.py** — All `expect_column_*` and `expect_columns_*` logic as functions `(df, results, ...)`
