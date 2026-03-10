@@ -210,18 +210,20 @@ flowchart LR
     I[Integration]
     E[End-to-end]
   end
-  Docs --> HTML[HTML versions for leadership]
+  Docs --> Formats[Markdown .md and HTML .html]
   Tests --> Pytest[pytest suite]
 ```
 
 **Documentation**
 
+Docs are available in **Markdown** (`.md`) and **HTML** (`.html`); the HTML files use a shared theme for easy reading in a browser.
+
 - **README** — Install, quick start, usage, dimensions, validations, comparison, test instructions.  
-  → [README.html](README.html) (same theme; open in browser or share with leadership.)
+  → [README.md](README.md) / [README.html](README.html)
 - **Architecture** — Module roles, data flow (with diagram), imports, multi-environment notes.  
-  → [ARCHITECTURE.html](ARCHITECTURE.html)
+  → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) / [ARCHITECTURE.html](ARCHITECTURE.html)
 - **Validations & dimensions reference** — Every dimension and validation with definitions.  
-  → [VALIDATIONS_AND_DIMENSIONS.html](VALIDATIONS_AND_DIMENSIONS.html)
+  → [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md) / [VALIDATIONS_AND_DIMENSIONS.html](VALIDATIONS_AND_DIMENSIONS.html)
 
 **Testing**
 
@@ -282,4 +284,4 @@ Dependencies are standard library plus **pandas** (and **numpy** for similarity)
 
 ## Summary
 
-The data quality checker was **modularized** from a single script into a clear package with six **dimensions**, a rich set of **validations** (single-column, multi-column, and multi-dataset), and **auto-suggestions**. **Demos** (`run_demo.py`) and **documentation** (README, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) are in place, with **HTML versions** for leadership. A solid **pytest** suite covers unit, integration, and end-to-end scenarios. The library is **portable** across Python versions and target platforms (local PC, Databricks, Splunk).
+The data quality checker was **modularized** from a single script into a clear package with six **dimensions**, a rich set of **validations** (single-column, multi-column, and multi-dataset), and **auto-suggestions**. **Demos** (`run_demo.py`) and **documentation** (README, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) are in place in **Markdown** (`.md`) and **HTML** (`.html`). A solid **pytest** suite covers unit, integration, and end-to-end scenarios. The library is **portable** across Python versions and target platforms (local PC, Databricks, Splunk).

@@ -357,7 +357,7 @@ python -m pytest tests/ -v
 
 - **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`, `comparison.py`, `suggestion.py`
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow
-- **Leadership / shareable overview:** [docs/overview.html](docs/overview.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)
+- **Shareable overview:** [README.html](README.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed). Docs are available in both Markdown (`.md`) and HTML (`.html`).
 
 ## Modularization (changelog)
 

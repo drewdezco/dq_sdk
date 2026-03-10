@@ -435,17 +435,18 @@ flowchart LR
     I[Integration]
     E[End-to-end]
   end
-  Docs --> HTML[HTML versions for leadership]
+  Docs --> Formats[Markdown .md and HTML .html]
   Tests --> Pytest[pytest suite]
 </div>
 <p><strong>Documentation</strong></p>
+<p>Docs are available in <strong>Markdown</strong> (<code>.md</code>) and <strong>HTML</strong> (<code>.html</code>); the HTML files use a shared theme for easy reading in a browser.</p>
 <ul>
 <li><strong>README</strong> — Install, quick start, usage, dimensions, validations, comparison, test instructions.<br />
-  → <a href="README.html">README.html</a> (same theme; open in browser or share with leadership.)</li>
+  → <a href="README.md">README.md</a> / <a href="README.html">README.html</a></li>
 <li><strong>Architecture</strong> — Module roles, data flow (with diagram), imports, multi-environment notes.<br />
-  → <a href="ARCHITECTURE.html">ARCHITECTURE.html</a></li>
+  → <a href="docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a> / <a href="ARCHITECTURE.html">ARCHITECTURE.html</a></li>
 <li><strong>Validations &amp; dimensions reference</strong> — Every dimension and validation with definitions.<br />
-  → <a href="VALIDATIONS_AND_DIMENSIONS.html">VALIDATIONS_AND_DIMENSIONS.html</a></li>
+  → <a href="demos/VALIDATIONS_AND_DIMENSIONS.md">demos/VALIDATIONS_AND_DIMENSIONS.md</a> / <a href="VALIDATIONS_AND_DIMENSIONS.html">VALIDATIONS_AND_DIMENSIONS.html</a></li>
 </ul>
 <p><strong>Testing</strong></p>
 <p>The test suite lives in <code>tests/</code> and uses <strong>pytest</strong>. Coverage includes:</p>
@@ -492,7 +493,7 @@ flowchart LR
 <p>Dependencies are standard library plus <strong>pandas</strong> (and <strong>numpy</strong> for similarity). No platform-specific code is required; run the same checker and demos wherever Python and pandas are available.</p>
 <hr />
 <h2>Summary</h2>
-<p>The data quality checker was <strong>modularized</strong> from a single script into a clear package with six <strong>dimensions</strong>, a rich set of <strong>validations</strong> (single-column, multi-column, and multi-dataset), and <strong>auto-suggestions</strong>. <strong>Demos</strong> (<code>run_demo.py</code>) and <strong>documentation</strong> (README, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) are in place, with <strong>HTML versions</strong> for leadership. A solid <strong>pytest</strong> suite covers unit, integration, and end-to-end scenarios. The library is <strong>portable</strong> across Python versions and target platforms (local PC, Databricks, Splunk).</p>
+<p>The data quality checker was <strong>modularized</strong> from a single script into a clear package with six <strong>dimensions</strong>, a rich set of <strong>validations</strong> (single-column, multi-column, and multi-dataset), and <strong>auto-suggestions</strong>. <strong>Demos</strong> (<code>run_demo.py</code>) and <strong>documentation</strong> (README, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) are in place in <strong>Markdown</strong> (<code>.md</code>) and <strong>HTML</strong> (<code>.html</code>). A solid <strong>pytest</strong> suite covers unit, integration, and end-to-end scenarios. The library is <strong>portable</strong> across Python versions and target platforms (local PC, Databricks, Splunk).</p>
   </div>
   <script>mermaid.initialize({ startOnLoad: true });</script>
 </body>
