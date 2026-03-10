@@ -1,5 +1,5 @@
 """
-Build demo DataFrames for use case 1 (all validations) and use case 2 (comparison).
+Build demo DataFrames for use case 1 (all validations), use case 2 (comparison), and use case 3 (auto-suggestions).
 No dependency on scripts/generate_sample_data.py or existing CSVs.
 """
 
@@ -83,3 +83,55 @@ def build_comparison_dfs():
         "name": ["Alicia", "Bob", "Dave"],
     })
     return df_left, df_right
+
+
+def build_demo_df_for_suggestions():
+    """
+    Build a DataFrame with clean data designed to trigger various auto-suggestion types.
+    Columns are chosen to demonstrate different suggestion capabilities:
+    - Low cardinality categorical → in_set
+    - Email pattern → regex pattern
+    - UUID pattern → regex pattern
+    - Numeric range → in_range
+    - Recent dates → recent or date_range
+    - Low null rate → not_null
+    - High uniqueness → unique
+    """
+    import uuid
+    
+    n = 30  # Enough samples for reliable suggestions
+    
+    # id: Unique integers (will suggest uniqueness)
+    ids = list(range(1, n + 1))
+    
+    # email: Email addresses (will suggest regex pattern)
+    emails = [
+        f"user{i}@example.com" for i in range(1, n + 1)
+    ]
+    
+    # user_id: UUIDs (will suggest regex pattern)
+    user_ids = [str(uuid.uuid4()) for _ in range(n)]
+    
+    # status: Low cardinality categorical (will suggest in_set)
+    statuses = ["active", "inactive", "pending"] * (n // 3) + ["active", "inactive", "pending"][:n % 3]
+    
+    # score: Numeric values in a reasonable range (will suggest in_range)
+    scores = [10.0, 20.0, 30.0, 40.0, 50.0] * (n // 5) + [10.0, 20.0, 30.0, 40.0, 50.0][:n % 5]
+    
+    # created_at: Recent dates (will suggest recent or date_range)
+    # Use dates within the last 30 days from a reference point
+    base_date = pd.Timestamp("2024-06-01")
+    created_dates = pd.date_range(base_date - pd.Timedelta(days=25), periods=n, freq="D")
+    
+    # name: String column with low/null null rate (will suggest not_null)
+    names = [f"User_{i}" for i in range(1, n + 1)]
+    
+    return pd.DataFrame({
+        "id": ids,
+        "email": emails,
+        "user_id": user_ids,
+        "status": statuses,
+        "score": scores,
+        "created_at": created_dates,
+        "name": names,
+    })

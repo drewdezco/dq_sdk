@@ -3,12 +3,13 @@ DataQualityChecker: main facade that holds state (df, results, dataset_name, cri
 and delegates to expectations, similarity, and reporting modules.
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 import pandas as pd
 from data_quality import expectations as exp
 from data_quality import similarity as sim
 from data_quality import reporting as rep
+from data_quality import suggestion as sug
 
 
 class DataQualityChecker:
@@ -159,6 +160,109 @@ class DataQualityChecker:
                 continue
             for config in configs:
                 method(**config)
+
+    # -------- Auto-suggestion --------
+    def generate_suggestions(
+        self,
+        columns: Optional[List[str]] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate validation suggestions based on dataframe analysis.
+        
+        Args:
+            columns: Optional list of column names to analyze. If None, analyzes all columns.
+            options: Optional dict of configuration options (see suggestion.DEFAULT_OPTIONS)
+        
+        Returns:
+            List of suggestion dictionaries, each with:
+            - column: column name
+            - method: expectation method name
+            - params: dict of parameters for the method
+            - confidence: float 0-1 indicating confidence in suggestion
+            - reason: human-readable explanation
+            - dimension: data quality dimension
+        """
+        return sug.generate_suggestions(self.df, columns=columns, options=options)
+
+    def apply_suggestions(
+        self,
+        suggestions: List[Dict[str, Any]],
+        auto_apply: bool = False
+    ) -> int:
+        """
+        Apply suggested validations to the checker.
+        
+        Args:
+            suggestions: List of suggestion dictionaries from generate_suggestions()
+            auto_apply: If True, applies all suggestions. If False, only applies suggestions
+                       with confidence >= 0.8 (default behavior)
+        
+        Returns:
+            Number of suggestions applied
+        """
+        if not suggestions:
+            return 0
+        
+        applied_count = 0
+        for suggestion in suggestions:
+            # Filter by confidence if auto_apply is False
+            if not auto_apply and suggestion.get("confidence", 0) < 0.8:
+                continue
+            
+            method_name = suggestion["method"]
+            params = suggestion["params"].copy()
+            # Add column to params (required for all expectation methods)
+            params["column"] = suggestion["column"]
+            
+            # Get the method from this checker instance
+            method = getattr(self, method_name, None)
+            if method:
+                try:
+                    method(**params)
+                    applied_count += 1
+                except Exception as e:
+                    print(f"Warning: Failed to apply suggestion {method_name} for column {suggestion['column']}: {e}")
+            else:
+                print(f"Warning: Method {method_name} not found on DataQualityChecker")
+        
+        return applied_count
+
+    def suggest_and_apply(
+        self,
+        columns: Optional[List[str]] = None,
+        options: Optional[Dict[str, Any]] = None,
+        auto_apply: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Convenience method to generate suggestions and optionally apply them.
+        
+        Args:
+            columns: Optional list of column names to analyze. If None, analyzes all columns.
+            options: Optional dict of configuration options (see suggestion.DEFAULT_OPTIONS)
+            auto_apply: If True, automatically applies all suggestions. If False, only applies
+                       suggestions with confidence >= 0.8
+        
+        Returns:
+            Dict with:
+            - suggestions: List of all generated suggestions
+            - applied_count: Number of suggestions that were applied
+            - applied_suggestions: List of suggestions that were actually applied
+        """
+        suggestions = self.generate_suggestions(columns=columns, options=options)
+        applied_count = self.apply_suggestions(suggestions, auto_apply=auto_apply)
+        
+        # Determine which suggestions were actually applied (those that passed confidence check)
+        applied_suggestions = []
+        for suggestion in suggestions:
+            if auto_apply or suggestion.get("confidence", 0) >= 0.8:
+                applied_suggestions.append(suggestion)
+        
+        return {
+            "suggestions": suggestions,
+            "applied_count": applied_count,
+            "applied_suggestions": applied_suggestions,
+        }
 
     # -------- Results and reporting --------
     def get_results(self):

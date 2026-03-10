@@ -75,6 +75,131 @@ def test_run_rules_from_json_unknown_expectation_no_crash(sample_df):
     assert len(c.results) == 0
 
 
+# -------- Auto-suggestion --------
+
+
+def test_generate_suggestions_returns_list(sample_df):
+    """Test that generate_suggestions returns a list of suggestions."""
+    c = DataQualityChecker(sample_df)
+    suggestions = c.generate_suggestions()
+    assert isinstance(suggestions, list)
+    if len(suggestions) > 0:
+        assert "column" in suggestions[0]
+        assert "method" in suggestions[0]
+        assert "params" in suggestions[0]
+        assert "confidence" in suggestions[0]
+        assert "reason" in suggestions[0]
+        assert "dimension" in suggestions[0]
+
+
+def test_generate_suggestions_with_options(sample_df):
+    """Test generating suggestions with custom options."""
+    c = DataQualityChecker(sample_df)
+    options = {"null_rate_threshold": 0.5}  # Higher threshold
+    suggestions = c.generate_suggestions(options=options)
+    assert isinstance(suggestions, list)
+
+
+def test_generate_suggestions_specific_columns(sample_df):
+    """Test generating suggestions for specific columns."""
+    c = DataQualityChecker(sample_df)
+    suggestions = c.generate_suggestions(columns=["id"])
+    assert isinstance(suggestions, list)
+    # All suggestions should be for the specified column
+    for s in suggestions:
+        assert s["column"] == "id"
+
+
+def test_apply_suggestions_adds_results(sample_df):
+    """Test that applying suggestions adds results to checker."""
+    c = DataQualityChecker(sample_df)
+    initial_count = len(c.results)
+    
+    # Create a simple suggestion
+    suggestions = [{
+        "column": "id",
+        "method": "expect_column_values_to_not_be_null",
+        "params": {},
+        "confidence": 0.95,
+        "reason": "Test",
+        "dimension": "Completeness",
+    }]
+    
+    applied_count = c.apply_suggestions(suggestions, auto_apply=True)
+    assert applied_count > 0
+    assert len(c.results) > initial_count
+
+
+def test_apply_suggestions_selective():
+    """Test applying subset of suggestions based on confidence."""
+    df = pd.DataFrame({"id": [1, 2, 3, 4, 5]})
+    c = DataQualityChecker(df)
+    
+    suggestions = [
+        {
+            "column": "id",
+            "method": "expect_column_values_to_not_be_null",
+            "params": {},
+            "confidence": 0.95,  # High confidence - should apply
+            "reason": "High confidence",
+            "dimension": "Completeness",
+        },
+        {
+            "column": "id",
+            "method": "expect_column_values_to_be_unique",
+            "params": {},
+            "confidence": 0.5,  # Low confidence - should not apply
+            "reason": "Low confidence",
+            "dimension": "Uniqueness",
+        },
+    ]
+    
+    # Without auto_apply, only high confidence should apply
+    applied_count = c.apply_suggestions(suggestions, auto_apply=False)
+    assert applied_count == 1
+    assert len(c.results) == 1
+    
+    # With auto_apply, both should apply
+    c2 = DataQualityChecker(df)
+    applied_count2 = c2.apply_suggestions(suggestions, auto_apply=True)
+    assert applied_count2 == 2
+    assert len(c2.results) == 2
+
+
+def test_suggest_and_apply_integration():
+    """Test full suggest_and_apply workflow."""
+    df = pd.DataFrame({
+        "id": [1, 2, 3, 4, 5, 6],
+        "status": ["active", "inactive", "pending"] * 2,
+    })
+    c = DataQualityChecker(df)
+    
+    result = c.suggest_and_apply(auto_apply=False)
+    assert "suggestions" in result
+    assert "applied_count" in result
+    assert "applied_suggestions" in result
+    assert isinstance(result["suggestions"], list)
+    assert isinstance(result["applied_suggestions"], list)
+    assert result["applied_count"] >= 0
+    assert len(c.results) == result["applied_count"]
+
+
+def test_suggestions_integration_with_existing_expectations(sample_df):
+    """Ensure suggestions work with manually added expectations."""
+    c = DataQualityChecker(sample_df)
+    
+    # Add a manual expectation
+    c.expect_column_values_to_not_be_null("id")
+    initial_count = len(c.results)
+    
+    # Generate and apply suggestions
+    result = c.suggest_and_apply(auto_apply=True)
+    
+    # Should have both manual and suggested expectations
+    assert len(c.results) >= initial_count
+    assert result["applied_count"] >= 0
+
+
 # -------- Integration: multi-step, no disk --------
 
 

@@ -2,10 +2,12 @@ README.md
 pyproject.toml
 data_quality/__init__.py
 data_quality/checker.py
+data_quality/comparison.py
 data_quality/dimensions.py
 data_quality/expectations.py
 data_quality/reporting.py
 data_quality/similarity.py
+data_quality/suggestion.py
 data_quality/utils.py
 modularized_data_quality.egg-info/PKG-INFO
 modularized_data_quality.egg-info/SOURCES.txt
@@ -13,8 +15,10 @@ modularized_data_quality.egg-info/dependency_links.txt
 modularized_data_quality.egg-info/requires.txt
 modularized_data_quality.egg-info/top_level.txt
 tests/test_checker.py
+tests/test_comparison.py
 tests/test_e2e.py
 tests/test_expectations.py
 tests/test_reporting.py
 tests/test_similarity.py
+tests/test_suggestion.py
 tests/test_utils.py

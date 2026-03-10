@@ -21,7 +21,7 @@ from data_quality import (
     compare_two_reports,
 )
 
-from demos.demo_data import build_demo_df_all_validations, build_comparison_dfs
+from demos.demo_data import build_demo_df_all_validations, build_comparison_dfs, build_demo_df_for_suggestions
 from demos.reference import print_validations_reference
 
 
@@ -59,6 +59,31 @@ def _print_rule_results_table(results_df):
         })
     out = pd.DataFrame(rows)
     # Use to_string with index=False for a clean table; pandas will align columns
+    print(out.to_string(index=False))
+    print()
+
+
+def _print_suggestions_table(suggestions):
+    """Print a clean table of validation suggestions."""
+    if not suggestions:
+        print("  No suggestions generated.")
+        print()
+        return
+    
+    # Build display rows: column, method, confidence, reason, dimension
+    rows = []
+    for s in suggestions:
+        method = s.get("method", "")
+        # Remove 'expect_' prefix and make it shorter for display
+        method_short = method.replace("expect_", "").replace("column_values_to_", "").replace("columns_values_to_", "")
+        rows.append({
+            "Column": str(s.get("column", ""))[:20],
+            "Method": method_short[:30],
+            "Confidence": f"{float(s.get('confidence', 0)):.2f}",
+            "Dimension": str(s.get("dimension", ""))[:15],
+            "Reason": str(s.get("reason", ""))[:45],
+        })
+    out = pd.DataFrame(rows)
     print(out.to_string(index=False))
     print()
 
@@ -280,6 +305,63 @@ def run_use_case_2():
     print()
 
 
+def run_use_case_3():
+    """Run auto-suggestion demo: generate and apply validation suggestions."""
+    df = build_demo_df_for_suggestions()
+    checker = DataQualityChecker(
+        df,
+        dataset_name="Demo - Auto-suggestions",
+        critical_columns=["id", "email"],
+    )
+
+    print("Use case 3: Auto-generation of validation suggestions")
+    print("=" * 60)
+    print(f"Analyzing DataFrame with {len(df)} rows and {len(df.columns)} columns")
+    print(f"Columns: {', '.join(df.columns)}")
+    print()
+
+    # Generate suggestions
+    print("Step 1: Generating validation suggestions...")
+    suggestions = checker.generate_suggestions()
+    print(f"Generated {len(suggestions)} suggestions")
+    print()
+    
+    if suggestions:
+        print("Generated suggestions:")
+        _print_suggestions_table(suggestions)
+        
+        # Show filtering by confidence
+        high_confidence = [s for s in suggestions if s.get("confidence", 0) >= 0.8]
+        print(f"High confidence suggestions (>= 0.8): {len(high_confidence)}")
+        if high_confidence:
+            _print_suggestions_table(high_confidence)
+    else:
+        print("No suggestions generated.")
+        print()
+        return
+
+    # Apply suggestions
+    print("Step 2: Applying suggestions...")
+    result = checker.suggest_and_apply(auto_apply=True)
+    applied_count = result.get("applied_count", 0)
+    print(f"Applied {applied_count} suggestions")
+    print()
+
+    # Show results
+    if applied_count > 0:
+        results_df = checker.get_results()
+        print("Validation results after applying suggestions:")
+        _print_rule_results_table(results_df)
+        
+        report = checker.get_comprehensive_results(title="Demo - Auto-suggestions")
+        if "error" not in report:
+            print("Summary (key_metrics):")
+            _print_summary(report)
+    else:
+        print("No suggestions were applied.")
+        print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run data quality demo use cases.")
     parser.add_argument(
@@ -294,6 +376,11 @@ def main():
         action="store_true",
         help="Skip saving demo report CSV in use case 1.",
     )
+    parser.add_argument(
+        "--skip-suggestions",
+        action="store_true",
+        help="Skip auto-suggestion demo (use case 3).",
+    )
     args = parser.parse_args()
 
     if args.list_validations:
@@ -302,6 +389,9 @@ def main():
 
     run_use_case_1(save_csv=not args.no_csv)
     run_use_case_2()
+    
+    if not args.skip_suggestions:
+        run_use_case_3()
 
 
 if __name__ == "__main__":

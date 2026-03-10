@@ -1,6 +1,6 @@
 # Modularized Data Quality Checker
 
-Run data quality expectations and similarity analysis on pandas DataFrames, then get or export results. Usable on your PC and in Databricks with the same code.
+Run data quality expectations and similarity analysis on pandas DataFrames, then get or export results.
 
 ## Install
 
@@ -38,6 +38,55 @@ checker.save_comprehensive_results_to_csv(
 )
 ```
 
+## Auto-Generating Validations
+
+Instead of manually defining validations, you can automatically generate suggestions based on your dataframe's characteristics:
+
+```python
+checker = DataQualityChecker(df, dataset_name="My Dataset")
+
+# Generate suggestions for all columns
+suggestions = checker.generate_suggestions()
+for suggestion in suggestions:
+    print(f"{suggestion['column']}: {suggestion['method']}")
+    print(f"  Reason: {suggestion['reason']}")
+    print(f"  Confidence: {suggestion['confidence']:.2f}")
+
+# Apply suggestions automatically
+checker.suggest_and_apply(auto_apply=True)
+
+# Or apply selectively based on confidence
+high_confidence = [s for s in suggestions if s['confidence'] > 0.8]
+checker.apply_suggestions(high_confidence)
+```
+
+**Customizing Suggestions**
+
+You can customize thresholds and behavior:
+
+```python
+options = {
+    "null_rate_threshold": 0.05,  # Suggest not_null if <5% nulls
+    "uniqueness_threshold": 0.95,  # Suggest unique if >95% unique
+    "categorical_max_distinct": 20,  # Max distinct values for "in_set" suggestion
+    "pattern_detection_enabled": True,  # Enable regex pattern detection
+}
+
+suggestions = checker.generate_suggestions(options=options)
+```
+
+**What Gets Suggested**
+
+The auto-suggestion feature analyzes each column and suggests validations based on:
+
+- **Completeness**: Low null rates → `expect_column_values_to_not_be_null`
+- **Uniqueness**: High uniqueness → `expect_column_values_to_be_unique`
+- **Categorical data**: Low cardinality → `expect_column_values_to_be_in_set` with observed values
+- **Numeric ranges**: Min/max values → `expect_column_values_to_be_in_range`
+- **Date ranges**: Min/max dates → `expect_column_values_to_be_in_date_range`
+- **Patterns**: Detects common formats (email, UUID, IDs) → `expect_column_values_to_match_regex`
+- **Timeliness**: Recent dates → `expect_column_values_to_be_recent`
+
 ## Demo
 
 A structured demo runs through **all validations** and shows data quality dimensions and results. From the project root:
@@ -55,23 +104,6 @@ python run_demo.py --list-validations
 ```
 
 Full reference: [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md).
-
-## Using on Databricks
-
-Use the same import. Install the package on the cluster (e.g. from a repo or wheel) or attach the project. For CSV output, pass a path writable from the cluster, for example:
-
-- `/dbfs/FileStore/your_folder/data_quality_history.csv`
-- A path on a mounted volume
-
-Example:
-
-```python
-from data_quality import DataQualityChecker
-# ... build checker and run expectations ...
-checker.save_comprehensive_results_to_csv(
-    csv_filename="/dbfs/FileStore/data_quality_history.csv",
-)
-```
 
 ## Data quality dimensions
 
@@ -107,6 +139,8 @@ report = checker.get_comprehensive_results(
 ## Validations (expectations)
 
 Available checks, grouped by dimension. Single-column methods take a column name; multi-column methods take a list of columns. For a full list with definitions, see [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md).
+
+> **Tip**: You can auto-generate validations based on your dataframe's characteristics. See the [Auto-Generating Validations](#auto-generating-validations) section above.
 
 - **Completeness**  
   - `expect_column_values_to_not_be_null(column)` — no nulls in column  
@@ -191,16 +225,6 @@ diff = compare_two_reports(report_a, report_b)
 # diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
 ```
 
-## Backward compatibility
-
-If you previously used:
-
-```python
-from data_quality_checker import DataQualityChecker
-```
-
-that still works: the root `data_quality_checker.py` re-exports `DataQualityChecker` from the `data_quality` package.
-
 ## Test suite
 
 Tests live in `tests/` and use **pytest**. Coverage runs from unit tests (individual functions) through integration (several modules together) to end-to-end (full checker flow including CSV output).
@@ -235,13 +259,14 @@ python -m pytest tests/ -v
 - **test_expectations.py** — Unit tests for each expectation (pass/fail, single and multi-column).
 - **test_similarity.py** — Unit tests for similarity analysis and summary/detailed helpers.
 - **test_reporting.py** — Unit tests for `get_comprehensive_results` and flatten; integration tests for `save_*` to CSV (using a temp path).
-- **test_checker.py** — Unit tests for checker state and single methods; integration tests for multi-step flows without disk.
-- **test_e2e.py** — End-to-end: create checker, run expectations and similarity, get report, save CSVs; asserts on files and report (marked `@pytest.mark.e2e`).
+- **test_checker.py** — Unit tests for checker state and single methods; integration tests for multi-step flows without disk; includes tests for suggestion generation and application methods.
+- **test_suggestion.py** — Unit tests for suggestion generation logic, pattern detection, and analysis functions.
+- **test_e2e.py** — End-to-end: create checker, run expectations and similarity, get report, save CSVs; asserts on files and report (marked `@pytest.mark.e2e`); includes end-to-end test for suggestion workflow.
 - **test_comparison.py** — Unit and integration tests for cross-dataset comparison: `reconcile_on_key` (join quality, match rates, similarity), `compare_two_reports`, `run_same_rules_on_two_datasets`, `DatasetComparator`.
 
 ## Layout and docs
 
-- **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`, `comparison.py`
+- **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`, `comparison.py`, `suggestion.py`
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow
 - **Leadership / shareable overview:** [docs/overview.html](docs/overview.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)
 
@@ -253,7 +278,6 @@ The original single-file `data_quality_checker.py` was split into a package whil
 - **expectations.py** — All `expect_column_*` and `expect_columns_*` logic as functions `(df, results, ...)`
 - **similarity.py** — Levenshtein analysis and `get_similarity_summary_table` / `get_detailed_similarity_comparisons`
 - **reporting.py** — `get_comprehensive_results`, `save_comprehensive_results_to_csv`, `save_field_summary_to_csv`, `flatten_comprehensive_results`
-- **checker.py** — `DataQualityChecker` holds state and delegates to the above; includes `run_rules_from_json`
+- **checker.py** — `DataQualityChecker` holds state and delegates to the above; includes `run_rules_from_json` and suggestion methods (`generate_suggestions`, `apply_suggestions`, `suggest_and_apply`)
+- **suggestion.py** — Auto-generation of validation suggestions based on dataframe analysis (`analyze_column_for_suggestions`, `generate_suggestions`, `suggestions_to_json`)
 - **comparison.py** — Cross-dataset: `reconcile_on_key`, `get_reconciliation_diffs`, `run_same_rules_on_two_datasets`, `compare_two_reports`, `DatasetComparator`
-
-The root `data_quality_checker.py` is a thin re-export for backward compatibility.
