@@ -255,6 +255,140 @@ def test_suggestions_to_json():
     assert json_rules["expect_column_values_to_not_be_null"][0]["column"] == "id"
 
 
+def test_suggestions_to_json_round_trip():
+    """Test round-trip: generate suggestions → JSON → run → verify."""
+    import pandas as pd
+    from data_quality import DataQualityChecker
+    
+    df = pd.DataFrame({
+        "id": [1, 2, 3, 4, 5, 6],
+        "status": ["active", "inactive", "pending"] * 2,
+        "score": [10, 20, 30, 40, 50, 60],
+    })
+    
+    checker = DataQualityChecker(df)
+    
+    # Generate suggestions
+    suggestions = checker.generate_suggestions(options={"min_samples_for_suggestion": 3})
+    assert len(suggestions) > 0
+    
+    # Convert to JSON
+    json_rules = sug.suggestions_to_json(suggestions)
+    assert isinstance(json_rules, dict)
+    assert len(json_rules) > 0
+    
+    # Create new checker and run JSON rules
+    checker2 = DataQualityChecker(df)
+    checker2.run_rules_from_json(json_rules)
+    
+    # Verify results were created
+    assert len(checker2.results) > 0
+    assert len(checker2.results) == len(suggestions)
+
+
+def test_suggestions_to_json_all_suggestion_types():
+    """Test conversion for all suggestion types."""
+    suggestions = [
+        {
+            "column": "id",
+            "method": "expect_column_values_to_not_be_null",
+            "params": {},
+            "confidence": 0.95,
+            "reason": "Low null rate",
+            "dimension": "Completeness",
+        },
+        {
+            "column": "id",
+            "method": "expect_column_values_to_be_unique",
+            "params": {},
+            "confidence": 0.98,
+            "reason": "High uniqueness",
+            "dimension": "Uniqueness",
+        },
+        {
+            "column": "status",
+            "method": "expect_column_values_to_be_in_set",
+            "params": {"allowed_values": ["active", "inactive", "pending"]},
+            "confidence": 0.9,
+            "reason": "Categorical",
+            "dimension": "Validity",
+        },
+        {
+            "column": "score",
+            "method": "expect_column_values_to_be_in_range",
+            "params": {"min_val": 0, "max_val": 100},
+            "confidence": 0.85,
+            "reason": "Numeric range",
+            "dimension": "Validity",
+        },
+        {
+            "column": "email",
+            "method": "expect_column_values_to_match_regex",
+            "params": {"pattern": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"},
+            "confidence": 0.88,
+            "reason": "Email pattern",
+            "dimension": "Validity",
+        },
+    ]
+    
+    json_rules = sug.suggestions_to_json(suggestions)
+    
+    # Verify all methods are present
+    assert "expect_column_values_to_not_be_null" in json_rules
+    assert "expect_column_values_to_be_unique" in json_rules
+    assert "expect_column_values_to_be_in_set" in json_rules
+    assert "expect_column_values_to_be_in_range" in json_rules
+    assert "expect_column_values_to_match_regex" in json_rules
+    
+    # Verify structure
+    assert len(json_rules["expect_column_values_to_not_be_null"]) == 1
+    assert json_rules["expect_column_values_to_not_be_null"][0]["column"] == "id"
+    
+    assert len(json_rules["expect_column_values_to_be_in_set"]) == 1
+    assert json_rules["expect_column_values_to_be_in_set"][0]["column"] == "status"
+    assert json_rules["expect_column_values_to_be_in_set"][0]["allowed_values"] == ["active", "inactive", "pending"]
+    
+    assert len(json_rules["expect_column_values_to_be_in_range"]) == 1
+    assert json_rules["expect_column_values_to_be_in_range"][0]["column"] == "score"
+    assert json_rules["expect_column_values_to_be_in_range"][0]["min_val"] == 0
+    assert json_rules["expect_column_values_to_be_in_range"][0]["max_val"] == 100
+
+
+def test_suggestions_to_json_empty_list():
+    """Test edge case: empty suggestions list."""
+    json_rules = sug.suggestions_to_json([])
+    assert json_rules == {}
+    assert isinstance(json_rules, dict)
+
+
+def test_suggestions_to_json_multiple_same_method():
+    """Test multiple suggestions with same method."""
+    suggestions = [
+        {
+            "column": "id",
+            "method": "expect_column_values_to_not_be_null",
+            "params": {},
+            "confidence": 0.95,
+            "reason": "Low null rate",
+            "dimension": "Completeness",
+        },
+        {
+            "column": "name",
+            "method": "expect_column_values_to_not_be_null",
+            "params": {},
+            "confidence": 0.92,
+            "reason": "Low null rate",
+            "dimension": "Completeness",
+        },
+    ]
+    
+    json_rules = sug.suggestions_to_json(suggestions)
+    assert "expect_column_values_to_not_be_null" in json_rules
+    assert len(json_rules["expect_column_values_to_not_be_null"]) == 2
+    columns = {r["column"] for r in json_rules["expect_column_values_to_not_be_null"]}
+    assert columns == {"id", "name"}
+
+
 # -------- Edge cases --------
 
 

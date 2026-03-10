@@ -12,6 +12,17 @@ pip install -e .
 
 If you don't have a `pyproject.toml` or `setup.py`, add the project root to `PYTHONPATH` or run scripts from the project root so `import data_quality` resolves.
 
+## Quick Start
+
+New to the library? Get a printable getting started guide:
+
+```python
+from data_quality import get_getting_started_guide
+print(get_getting_started_guide())
+```
+
+This will print a comprehensive markdown guide with installation steps, basic examples, common use cases, and links to more documentation.
+
 ## Usage
 
 ```python
@@ -95,12 +106,32 @@ A structured demo runs through **all validations** and shows data quality dimens
 python run_demo.py
 ```
 
-This runs two use cases: (1) a single dataset with every expectation and similarity check, and (2) comparison of two datasets (reconciliation on a key and same-rules report comparison). Report output is printed and, for use case 1, saved to `data/demo_quality_report.csv` (and field details).
+This runs three use cases:
+
+1. **Use case 1: Single dataset with all validations** - Demonstrates every expectation type and similarity check on a single dataset. Includes intentional failures for demo effect. Report output is printed and saved to `data/demo_quality_report.csv` (and field details).
+
+2. **Use case 2: Comparing two datasets** - Shows reconciliation on a key column and same-rules report comparison between two datasets. Demonstrates how to compare data quality across different data sources.
+
+3. **Use case 3: Auto-generation of validation suggestions** - Demonstrates the auto-suggestion feature that analyzes a DataFrame and automatically generates validation suggestions based on data characteristics. Shows generating suggestions, filtering by confidence, and applying them.
+
+### Demo Options
 
 To list every **dimension** and **validation** with short definitions (no data run):
 
 ```bash
 python run_demo.py --list-validations
+```
+
+To skip saving the CSV report in use case 1:
+
+```bash
+python run_demo.py --no-csv
+```
+
+To skip the auto-suggestion demo (use case 3):
+
+```bash
+python run_demo.py --skip-suggestions
 ```
 
 Full reference: [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md).
@@ -168,7 +199,65 @@ Available checks, grouped by dimension. Single-column methods take a column name
 - **Consistency**  
   - `analyze_column_similarity_levenshtein(column1, column2, similarity_threshold=0.8)` — similarity between two columns (appends a Consistency result)
 
-You can also run expectations from a JSON config with `run_rules_from_json(rules)`; see the checker API for the expected structure.
+### Running Expectations from JSON Config
+
+You can run expectations from a JSON/dictionary config using `run_rules_from_json(rules)`. The JSON structure maps expectation method names to lists of parameter dictionaries:
+
+```python
+# Manual JSON config
+rules = {
+    "expect_column_values_to_not_be_null": [
+        {"column": "id"}
+    ],
+    "expect_column_values_to_be_unique": [
+        {"column": "id"}
+    ],
+    "expect_column_values_to_be_in_set": [
+        {"column": "status", "allowed_values": ["active", "inactive", "pending"]}
+    ],
+    "expect_column_values_to_be_in_range": [
+        {"column": "score", "min_val": 0, "max_val": 100}
+    ],
+    "expect_column_values_to_match_regex": [
+        {"column": "email", "pattern": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"}
+    ],
+    "expect_column_values_to_be_in_date_range": [
+        {"column": "created_at", "min_date": "2024-01-01", "max_date": "2024-12-31"}
+    ],
+    "expect_column_values_to_be_recent": [
+        {"column": "updated_at", "max_age_days": 30, "reference_date": "2024-06-01"}
+    ]
+}
+
+checker = DataQualityChecker(df)
+checker.run_rules_from_json(rules)
+```
+
+**Auto-generating JSON from suggestions:**
+
+You can also convert auto-generated suggestions directly to JSON format:
+
+```python
+from data_quality import DataQualityChecker
+from data_quality.suggestion import suggestions_to_json
+
+checker = DataQualityChecker(df)
+
+# Generate suggestions
+suggestions = checker.generate_suggestions()
+
+# Convert to JSON format
+json_rules = suggestions_to_json(suggestions)
+
+# Run the JSON rules
+checker.run_rules_from_json(json_rules)
+```
+
+**JSON Structure:**
+- Top-level keys are expectation method names (e.g., `"expect_column_values_to_not_be_null"`)
+- Each key maps to a list of parameter dictionaries
+- Each parameter dict must include `"column"` and any other required parameters for that expectation type
+- Multiple columns can use the same expectation type by adding multiple dicts to the list
 
 ## Comparing two datasets
 

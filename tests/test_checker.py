@@ -75,6 +75,115 @@ def test_run_rules_from_json_unknown_expectation_no_crash(sample_df):
     assert len(c.results) == 0
 
 
+def test_run_rules_from_json_multiple_types(sample_df):
+    """Test JSON config with multiple expectation types."""
+    c = DataQualityChecker(sample_df)
+    rules = {
+        "expect_column_values_to_not_be_null": [{"column": "id"}],
+        "expect_column_values_to_be_unique": [{"column": "id"}],
+        "expect_column_values_to_be_in_set": [
+            {"column": "name", "allowed_values": ["Alice", "Bob", "Charlie", "Dave", "Eve"]}
+        ],
+        "expect_column_values_to_be_in_range": [
+            {"column": "score", "min_val": 0, "max_val": 100}
+        ],
+    }
+    c.run_rules_from_json(rules)
+    assert len(c.results) == 4
+    rule_names = {r["rule"] for r in c.results}
+    assert "not null" in rule_names
+    assert "unique" in rule_names
+    assert "in allowed set" in rule_names
+    # Range rule name includes the range values
+    assert any("in range" in name for name in rule_names)
+
+
+def test_run_rules_from_json_multiple_configs(sample_df):
+    """Test multiple configs per expectation type."""
+    c = DataQualityChecker(sample_df)
+    rules = {
+        "expect_column_values_to_not_be_null": [
+            {"column": "id"},
+            {"column": "name"},
+        ],
+        "expect_column_values_to_be_in_range": [
+            {"column": "score", "min_val": 0, "max_val": 100},
+            {"column": "id", "min_val": 1, "max_val": 1000},
+        ],
+    }
+    c.run_rules_from_json(rules)
+    assert len(c.results) == 4
+    not_null_results = [r for r in c.results if r["rule"] == "not null"]
+    assert len(not_null_results) == 2
+    assert {r["column"] for r in not_null_results} == {"id", "name"}
+
+
+def test_run_rules_from_json_all_parameter_types(sample_df):
+    """Test all parameter variations in JSON config."""
+    import pandas as pd
+    
+    df = pd.DataFrame({
+        "id": [1, 2, 3],
+        "status": ["active", "inactive", "pending"],
+        "score": [10, 20, 30],
+        "email": ["test@example.com", "user@domain.org", "admin@site.net"],
+        "created_at": pd.date_range("2024-01-01", periods=3, freq="D"),
+        "updated_at": pd.date_range("2024-06-01", periods=3, freq="D"),
+    })
+    
+    c = DataQualityChecker(df)
+    rules = {
+        "expect_column_values_to_not_be_null": [{"column": "id"}],
+        "expect_column_values_to_be_unique": [{"column": "id"}],
+        "expect_column_values_to_be_in_set": [
+            {"column": "status", "allowed_values": ["active", "inactive", "pending"]}
+        ],
+        "expect_column_values_to_be_in_range": [
+            {"column": "score", "min_val": 0, "max_val": 100}
+        ],
+        "expect_column_values_to_match_regex": [
+            {"column": "email", "pattern": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"}
+        ],
+        "expect_column_values_to_be_in_date_range": [
+            {"column": "created_at", "min_date": "2024-01-01", "max_date": "2024-12-31"}
+        ],
+        "expect_column_values_to_be_recent": [
+            {"column": "updated_at", "max_age_days": 365, "reference_date": "2024-06-01"}
+        ],
+    }
+    c.run_rules_from_json(rules)
+    assert len(c.results) == 7
+
+
+def test_run_rules_from_json_empty_dict(sample_df):
+    """Test edge case: empty JSON dict."""
+    c = DataQualityChecker(sample_df)
+    c.run_rules_from_json({})
+    assert len(c.results) == 0
+
+
+def test_run_rules_from_json_empty_lists(sample_df):
+    """Test edge case: empty lists for expectation types."""
+    c = DataQualityChecker(sample_df)
+    c.run_rules_from_json({
+        "expect_column_values_to_not_be_null": [],
+        "expect_column_values_to_be_unique": [],
+    })
+    assert len(c.results) == 0
+
+
+def test_run_rules_from_json_invalid_structure(sample_df):
+    """Test edge case: invalid structure (non-list value)."""
+    c = DataQualityChecker(sample_df)
+    # Invalid: value should be a list, not a dict
+    # The current implementation will raise TypeError when trying to iterate over dict keys
+    # This test documents that invalid structure raises an error
+    with pytest.raises(TypeError):
+        c.run_rules_from_json({
+            "expect_column_values_to_not_be_null": {"column": "id"}  # Should be [{"column": "id"}]
+        })
+
+
 # -------- Auto-suggestion --------
 
 
