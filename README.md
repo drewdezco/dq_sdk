@@ -314,6 +314,36 @@ diff = compare_two_reports(report_a, report_b)
 # diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
 ```
 
+## Pipeline integration
+
+Compare a current dataset to a baseline (e.g. same data one week earlier) and evaluate degradation thresholds. Use this to detect data stopped coming in, quality below a minimum, schema changes, or identical/stale data. The library returns a single result dict; your pipeline decides whether to alert or stop ingestion.
+
+```python
+from data_quality import compare_snapshots, DataQualityChecker
+
+def my_rules(df, results):
+    c = DataQualityChecker(df, dataset_name="")
+    c.df, c.results = df, results
+    c.expect_column_values_to_not_be_null("id")
+    c.expect_column_values_to_be_unique("id")
+
+# Load baseline and current (e.g. from tables or files)
+result = compare_snapshots(
+    df_baseline, df_current, my_rules,
+    min_overall_health=80,
+    fail_on_volume_drop_pct=-25,
+    date_column="updated_at",
+    warn_on_stale=True,
+    stale_key_column="id",
+)
+if not result["passed"]:
+    # Alert or stop ingestion
+    print(result["warnings"])
+# result also has schema_changes, volume, comparison, below_threshold
+```
+
+Helpers: `compare_schema`, `compare_volume`, `detect_identical_or_stale` for use without running full rules.
+
 ## Test suite
 
 Tests live in `tests/` and use **pytest**. Coverage runs from unit tests (individual functions) through integration (several modules together) to end-to-end (full checker flow including CSV output).
@@ -357,11 +387,11 @@ python -m pytest tests/ -v
 
 - **Package:** `data_quality/` — `checker.py`, `utils.py`, `expectations.py`, `similarity.py`, `reporting.py`, `comparison.py`, `suggestion.py`
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow
-- **Shareable overview:** [README.html](README.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed). Docs are available in both Markdown (`.md`) and HTML (`.html`).
+- **Leadership / shareable overview:** [docs/overview.html](docs/overview.html) — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)
 
 ## Modularization (changelog)
 
-The original single-file `data_quality_checker.py` was split into a package while keeping the functionality:
+The original single-file `data_quality_checker.py` was split into a package while keeping the same public API:
 
 - **utils.py** — `normalize_columns`, Levenshtein helpers, `classify_data_type`, `calculate_quality_scores`, `is_critical_data_element`
 - **expectations.py** — All `expect_column_*` and `expect_columns_*` logic as functions `(df, results, ...)`

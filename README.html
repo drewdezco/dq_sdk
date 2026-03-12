@@ -535,6 +535,31 @@ report_a, report_b = run_same_rules_on_two_datasets(
 diff = compare_two_reports(report_a, report_b)
 # diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
 </code></pre>
+<h2>Pipeline integration</h2>
+<p>Compare a current dataset to a baseline (e.g. same data one week earlier) and evaluate degradation thresholds. Use this to detect data stopped coming in, quality below a minimum, schema changes, or identical/stale data. The library returns a single result dict; your pipeline decides whether to alert or stop ingestion.</p>
+<pre><code class="language-python">from data_quality import compare_snapshots, DataQualityChecker
+
+def my_rules(df, results):
+    c = DataQualityChecker(df, dataset_name=&quot;&quot;)
+    c.df, c.results = df, results
+    c.expect_column_values_to_not_be_null(&quot;id&quot;)
+    c.expect_column_values_to_be_unique(&quot;id&quot;)
+
+# Load baseline and current (e.g. from tables or files)
+result = compare_snapshots(
+    df_baseline, df_current, my_rules,
+    min_overall_health=80,
+    fail_on_volume_drop_pct=-25,
+    date_column=&quot;updated_at&quot;,
+    warn_on_stale=True,
+    stale_key_column=&quot;id&quot;,
+)
+if not result[&quot;passed&quot;]:
+    # Alert or stop ingestion
+    print(result[&quot;warnings&quot;])
+# result also has schema_changes, volume, comparison, below_threshold
+</code></pre>
+<p>Helpers: <code>compare_schema</code>, <code>compare_volume</code>, <code>detect_identical_or_stale</code> for use without running full rules.</p>
 <h2>Test suite</h2>
 <p>Tests live in <code>tests/</code> and use <strong>pytest</strong>. Coverage runs from unit tests (individual functions) through integration (several modules together) to end-to-end (full checker flow including CSV output).</p>
 <p><strong>Install and run</strong></p>
@@ -567,10 +592,10 @@ diff = compare_two_reports(report_a, report_b)
 <ul>
 <li><strong>Package:</strong> <code>data_quality/</code> — <code>checker.py</code>, <code>utils.py</code>, <code>expectations.py</code>, <code>similarity.py</code>, <code>reporting.py</code>, <code>comparison.py</code>, <code>suggestion.py</code></li>
 <li><strong>Architecture:</strong> <a href="docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a> — module roles and data flow</li>
-<li><strong>Shareable overview:</strong> <a href="README.html">README.html</a> — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed). Docs are available in both Markdown (<code>.md</code>) and HTML (<code>.html</code>).</li>
+<li><strong>Leadership / shareable overview:</strong> <a href="docs/overview.html">docs/overview.html</a> — same content as this README in HTML (open in a browser; use File → Print → Save as PDF if needed)</li>
 </ul>
 <h2>Modularization (changelog)</h2>
-<p>The original single-file <code>data_quality_checker.py</code> was split into a package while keeping the functionality:</p>
+<p>The original single-file <code>data_quality_checker.py</code> was split into a package while keeping the same public API:</p>
 <ul>
 <li><strong>utils.py</strong> — <code>normalize_columns</code>, Levenshtein helpers, <code>classify_data_type</code>, <code>calculate_quality_scores</code>, <code>is_critical_data_element</code></li>
 <li><strong>expectations.py</strong> — All <code>expect_column_*</code> and <code>expect_columns_*</code> logic as functions <code>(df, results, ...)</code></li>
