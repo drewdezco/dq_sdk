@@ -93,7 +93,7 @@ flowchart TB
   Avg --> Health
 ```
 
-**Reference:** [VALIDATIONS_AND_DIMENSIONS.html](VALIDATIONS_AND_DIMENSIONS.html) — dimensions table and full validations list.
+**Reference:** [VALIDATIONS_AND_DIMENSIONS.md](VALIDATIONS_AND_DIMENSIONS.md) — dimensions table and full validations list.
 
 ---
 
@@ -154,7 +154,7 @@ high_confidence = [s for s in suggestions if s["confidence"] > 0.8]
 checker.apply_suggestions(high_confidence)
 ```
 
-**Full list of validations and definitions:** [VALIDATIONS_AND_DIMENSIONS.html](VALIDATIONS_AND_DIMENSIONS.html).
+**Full list of validations and definitions:** [VALIDATIONS_AND_DIMENSIONS.md](VALIDATIONS_AND_DIMENSIONS.md).
 
 ---
 
@@ -217,16 +217,16 @@ flowchart LR
 
 **Documentation**
 
-Docs are available in **Markdown** (`.md`) and **HTML** (`.html`); the HTML files use a shared theme for easy reading in a browser.
+Docs are available in **Markdown** (`.md`):
 
 - **README** — Overview, install, quick start, what you can do; see USAGE for full functionality and use.  
-  → [README.md](README.md) / [README.html](README.html)
+  → [README.md](README.md)
 - **USAGE** — Full functionality and use: dimensions, validations list, JSON config, auto-suggestions, comparing datasets, pipeline, test suite, modularization.  
-  → [USAGE.md](USAGE.md) / [USAGE.html](USAGE.html)
+  → [USAGE.md](USAGE.md)
 - **Architecture** — Module roles, data flow (with diagram), imports, multi-environment notes.  
-  → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) / [ARCHITECTURE.html](ARCHITECTURE.html)
+  → [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Validations & dimensions reference** — Every dimension and validation with definitions.  
-  → [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md) / [VALIDATIONS_AND_DIMENSIONS.html](VALIDATIONS_AND_DIMENSIONS.html)
+  → [VALIDATIONS_AND_DIMENSIONS.md](VALIDATIONS_AND_DIMENSIONS.md)
 
 **Testing**
 
@@ -287,4 +287,4 @@ Dependencies are standard library plus **pandas** (and **numpy** for similarity)
 
 ## Summary
 
-The data quality checker was **modularized** from a single script into a clear package with six **dimensions**, a rich set of **validations** (single-column, multi-column, and multi-dataset), and **auto-suggestions**. **Demos** (`run_demo.py`) and **documentation** (README, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) are in place in **Markdown** (`.md`) and **HTML** (`.html`). A solid **pytest** suite covers unit, integration, and end-to-end scenarios. The library is **portable** across Python versions and target platforms (local PC, Databricks, Splunk).
+The data quality checker was **modularized** from a single script into a clear package with six **dimensions**, a rich set of **validations** (single-column, multi-column, and multi-dataset), and **auto-suggestions**. Documentation (README, USAGE, ARCHITECTURE, VALIDATIONS_AND_DIMENSIONS) is in place in **Markdown** (`.md`). A solid **pytest** suite covers unit, integration, and end-to-end scenarios. The library is **portable** across Python versions and target platforms (local PC, Databricks, Splunk).

@@ -61,7 +61,7 @@ Full validations list, JSON config, comparison and pipeline examples: [USAGE.md]
 
 ## Demo
 
-A structured demo runs through all validations and shows data quality dimensions and results. From the project root: `python run_demo.py`. Options: `--list-validations`, `--no-csv`, `--skip-suggestions`. See [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md) for a full list.
+Open and run `examples.py` from the project root (or copy sections into your notebook) to see validations, suggestions, dataset comparison, and pipeline checks in action.
 
 ## Tests
 
@@ -72,4 +72,4 @@ Run `pytest tests/ -v` (or `python -m pytest tests/ -v`); use `-m "not e2e"` to 
 - **Package:** `data_quality/` — checker, expectations, similarity, reporting, comparison, suggestion, pipeline, utils.
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module roles and data flow.
 - **Functionality and use:** [USAGE.md](USAGE.md) — dimensions, validations, JSON, auto-suggestions, comparing datasets, pipeline, test suite, modularization.
-- **Shareable overview:** [docs/overview.html](docs/overview.html) — this README in HTML (open in a browser; File → Print → Save as PDF if needed).
+- **Shareable overview:** Use `get_getting_started_html()` or `get_usage_html()` from `data_quality` to render HTML in your environment.

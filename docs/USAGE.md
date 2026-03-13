@@ -35,7 +35,7 @@ report = checker.get_comprehensive_results(
 
 ## Validations (expectations)
 
-Available checks, grouped by dimension. Single-column methods take a column name; multi-column methods take a list of columns. For a full list with definitions, see [demos/VALIDATIONS_AND_DIMENSIONS.md](demos/VALIDATIONS_AND_DIMENSIONS.md).
+Available checks, grouped by dimension. Single-column methods take a column name; multi-column methods take a list of columns. For a full list with definitions, see `docs/VALIDATIONS_AND_DIMENSIONS.md`.
 
 > **Tip**: You can auto-generate validations based on your dataframe's characteristics. See the [Auto-Generating Validations](#auto-generating-validations) section below.
 
