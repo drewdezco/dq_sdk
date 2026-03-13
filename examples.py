@@ -17,8 +17,34 @@ from data_quality import (
     compare_snapshots_multi,
     compare_volume,
     detect_identical_or_stale,
+    get_getting_started_guide,
+    get_pipeline_markdown,
+    get_usage_markdown,
     load_dataframe,
+    print_docs_overview,
 )
+
+
+# =============================================================================
+# SECTION 0: Docs helpers — where to find information
+# =============================================================================
+# Run this section to see a one-line, ready-to-copy call that lists all docs.
+
+print("SECTION 0 — Docs index")
+print_docs_overview()
+print("\n" + "=" * 80 + "\n")
+
+print("SECTION 0 — Getting started (markdown)")
+print(get_getting_started_guide())
+print("\n" + "=" * 80 + "\n")
+
+print("SECTION 0 — Usage overview (markdown excerpt)")
+print(get_usage_markdown().split("\n\n", maxsplit=3)[0])
+print("\n" + "=" * 80 + "\n")
+
+print("SECTION 0 — Pipeline docs (markdown excerpt)")
+print(get_pipeline_markdown().split("\n\n", maxsplit=3)[0])
+print("\n" + "=" * 80 + "\n")
 
 
 # =============================================================================

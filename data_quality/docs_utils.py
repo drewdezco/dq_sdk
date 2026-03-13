@@ -288,3 +288,78 @@ def get_pipeline_html() -> str:
         "Data Quality — Pipeline integration",
     )
 
+
+def get_docs_index() -> list[dict]:
+    """
+    Return a small catalog of available docs with descriptions.
+
+    Each entry has:
+        name: short identifier
+        markdown_path: relative path to the .md file
+        markdown_fn: public helper that returns markdown
+        html_fn: public helper that returns HTML (string)
+        description: what the document is for
+    """
+    docs = [
+        {
+            "name": "README",
+            "markdown_path": "README.md",
+            "markdown_fn": "get_readme_markdown",
+            "html_fn": "get_readme_html",
+            "description": "Overview, install, quick start, and what you can do.",
+        },
+        {
+            "name": "GETTING_STARTED",
+            "markdown_path": "docs/GETTING_STARTED.md",
+            "markdown_fn": "get_getting_started_markdown",
+            "html_fn": "get_getting_started_html",
+            "description": "Onboarding guide with a first example and next steps.",
+        },
+        {
+            "name": "USAGE",
+            "markdown_path": "docs/USAGE.md",
+            "markdown_fn": "get_usage_markdown",
+            "html_fn": "get_usage_html",
+            "description": "Full functionality and usage reference (dimensions, validations, JSON, comparisons, pipeline, tests, modularization).",
+        },
+        {
+            "name": "ARCHITECTURE",
+            "markdown_path": "docs/ARCHITECTURE.md",
+            "markdown_fn": "get_architecture_markdown",
+            "html_fn": "get_architecture_html",
+            "description": "Package architecture: module roles, data flow, and imports.",
+        },
+        {
+            "name": "VALIDATIONS_AND_DIMENSIONS",
+            "markdown_path": "docs/VALIDATIONS_AND_DIMENSIONS.md",
+            "markdown_fn": None,
+            "html_fn": None,
+            "description": "Reference for all dimensions and validation methods with short definitions.",
+        },
+    ]
+
+    return docs
+
+
+def print_docs_overview() -> None:
+    """
+    Print a simple, human-friendly overview of all available docs and helpers.
+
+    Intended for quick discovery in notebooks or scripts. Example:
+
+        from data_quality import print_docs_overview
+        print_docs_overview()
+    """
+    for doc in get_docs_index():
+        line = f"- {doc['name']}: {doc['description']} (markdown: {doc['markdown_path']})"
+        markdown_fn = doc.get("markdown_fn")
+        html_fn = doc.get("html_fn")
+        helpers = []
+        if markdown_fn:
+            helpers.append(f"md: data_quality.{markdown_fn}")
+        if html_fn:
+            helpers.append(f"html: data_quality.{html_fn}")
+        if helpers:
+            line += " [" + ", ".join(helpers) + "]"
+        print(line)
+
