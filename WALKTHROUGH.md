@@ -190,7 +190,7 @@ python run_demo.py --list-validations
 
 **Lighter examples:** `quick_start_example.py` and `run_analysis.py` show minimal usage.
 
-**Full usage and options:** [README.html](README.html).
+**Full usage and options:** [README.html](README.html) and [USAGE.html](USAGE.html).
 
 ---
 
@@ -202,6 +202,7 @@ python run_demo.py --list-validations
 flowchart LR
   subgraph Docs["Documentation"]
     R[README]
+    U[USAGE]
     Ar[Architecture]
     V[Validations & dimensions]
   end
@@ -218,8 +219,10 @@ flowchart LR
 
 Docs are available in **Markdown** (`.md`) and **HTML** (`.html`); the HTML files use a shared theme for easy reading in a browser.
 
-- **README** — Install, quick start, usage, dimensions, validations, comparison, test instructions.  
+- **README** — Overview, install, quick start, what you can do; see USAGE for full functionality and use.  
   → [README.md](README.md) / [README.html](README.html)
+- **USAGE** — Full functionality and use: dimensions, validations list, JSON config, auto-suggestions, comparing datasets, pipeline, test suite, modularization.  
+  → [USAGE.md](USAGE.md) / [USAGE.html](USAGE.html)
 - **Architecture** — Module roles, data flow (with diagram), imports, multi-environment notes.  
   → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) / [ARCHITECTURE.html](ARCHITECTURE.html)
 - **Validations & dimensions reference** — Every dimension and validation with definitions.  

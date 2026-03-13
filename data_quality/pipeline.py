@@ -3,16 +3,47 @@ Pipeline integration: compare current dataset to a baseline (e.g. same dataset o
 evaluate degradation thresholds, and detect volume drop, schema changes, and stale/identical data.
 
 Callers get a single result dict (passed, warnings, details); the pipeline decides whether
-to alert or stop ingestion. Load baseline and current from your environment (e.g. tables);
+to alert or stop ingestion. Load baseline and current from your environment (e.g. tables or CSV paths);
 this module is stateless.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pandas as pd
 
 from data_quality.comparison import compare_two_reports, run_same_rules_on_two_datasets
 from data_quality.utils import normalize_columns
+
+# Default threshold values applied when use_default_thresholds=True and the user did not pass a value.
+DEFAULT_THRESHOLDS: Dict[str, Any] = {
+    "min_overall_health": 80,
+    "fail_on_volume_drop_pct": -25,
+}
+
+
+def load_dataframe(
+    source: Union[pd.DataFrame, str, Path],
+    **read_csv_kwargs: Any,
+) -> pd.DataFrame:
+    """
+    Normalize a snapshot source to a pandas DataFrame.
+
+    If source is already a DataFrame, return it unchanged. If source is a str or Path,
+    load with pd.read_csv(source, **read_csv_kwargs). Use this for CSV files or pass
+    through to compare_snapshots / compare_snapshots_multi when using paths.
+
+    Args:
+        source: A DataFrame, or a path to a CSV (or other file pandas can read).
+        **read_csv_kwargs: Passed to pd.read_csv when source is a path (e.g. encoding, sep).
+
+    Returns:
+        The DataFrame (either the input or loaded from the path).
+    """
+    if isinstance(source, pd.DataFrame):
+        return source
+    path = Path(source) if isinstance(source, str) else source
+    return pd.read_csv(path, **read_csv_kwargs)
 
 
 def compare_schema(
@@ -162,8 +193,8 @@ def detect_identical_or_stale(
 
 
 def compare_snapshots(
-    df_baseline: pd.DataFrame,
-    df_current: pd.DataFrame,
+    df_baseline: Union[pd.DataFrame, str, Path],
+    df_current: Union[pd.DataFrame, str, Path],
     rules_runner: Callable[[pd.DataFrame, List], None],
     *,
     dataset_name_baseline: str = "baseline",
@@ -177,17 +208,20 @@ def compare_snapshots(
     schema_check_dtypes: bool = False,
     warn_on_stale: bool = True,
     stale_key_column: Optional[Union[str, List[str]]] = None,
+    use_default_thresholds: bool = False,
+    read_csv_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Compare current dataset to baseline: schema, volume, stale detection, and quality (same rules on both).
 
-    Load baseline and current (e.g. 1 week apart); call with your rules_runner. Use
-    min_overall_health=80, fail_on_volume_drop_pct=-25, warn_on_stale=True. If not
-    result["passed"]: alert or stop ingestion; check result["warnings"] for stale data.
+    Load baseline and current (e.g. 1 week apart) as DataFrames or CSV/path; call with your rules_runner.
+    Use min_overall_health=80, fail_on_volume_drop_pct=-25, warn_on_stale=True. Or set use_default_thresholds=True
+    to apply those defaults only where you do not pass a value. If not result["passed"]: alert or stop ingestion;
+    check result["warnings"] for stale data.
 
     Args:
-        df_baseline: Baseline snapshot (e.g. last week).
-        df_current: Current snapshot.
+        df_baseline: Baseline snapshot (e.g. last week); DataFrame or path to CSV.
+        df_current: Current snapshot; DataFrame or path to CSV.
         rules_runner: Callable(df, results) that appends expectations to results.
         dataset_name_baseline: Name for baseline in reports.
         dataset_name_current: Name for current in reports.
@@ -200,6 +234,8 @@ def compare_snapshots(
         schema_check_dtypes: If True, compare_schema includes type_changes.
         warn_on_stale: If True, run detect_identical_or_stale and append to warnings when stale.
         stale_key_column: Optional key column(s) for stale detection.
+        use_default_thresholds: If True, apply DEFAULT_THRESHOLDS (min_overall_health=80, fail_on_volume_drop_pct=-25) only where the corresponding arg is None.
+        read_csv_kwargs: Optional dict passed to pd.read_csv when df_baseline or df_current is a path (e.g. {"encoding": "utf-8", "sep": ";"}).
 
     Returns:
         {
@@ -212,6 +248,16 @@ def compare_snapshots(
             "below_threshold": {"overall": bool, "dimensions": list},
         }
     """
+    read_kwargs = read_csv_kwargs or {}
+    df_baseline = load_dataframe(df_baseline, **read_kwargs)
+    df_current = load_dataframe(df_current, **read_kwargs)
+
+    if use_default_thresholds:
+        if min_overall_health is None and "min_overall_health" in DEFAULT_THRESHOLDS:
+            min_overall_health = DEFAULT_THRESHOLDS["min_overall_health"]
+        if fail_on_volume_drop_pct is None and "fail_on_volume_drop_pct" in DEFAULT_THRESHOLDS:
+            fail_on_volume_drop_pct = DEFAULT_THRESHOLDS["fail_on_volume_drop_pct"]
+
     warnings: List[str] = []
     passed = True
 
@@ -298,4 +344,80 @@ def compare_snapshots(
         "stale": stale,
         "comparison": comparison,
         "below_threshold": below_threshold,
+    }
+
+
+def compare_snapshots_multi(
+    snapshots: List[Union[pd.DataFrame, str, Path]],
+    rules_runner: Callable[[pd.DataFrame, List], None],
+    *,
+    mode: Literal["consecutive", "baseline"] = "consecutive",
+    read_csv_kwargs: Optional[Dict[str, Any]] = None,
+    **compare_snapshots_kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Compare multiple snapshots in order: either consecutive pairs (s0 vs s1, s1 vs s2, ...)
+    or each snapshot against the first (s0 vs s1, s0 vs s2, ...). Snapshot order is the list order:
+    index 0 = oldest (or baseline in baseline mode).
+
+    Args:
+        snapshots: Ordered list of DataFrames or paths to CSV files (oldest first).
+        rules_runner: Callable(df, results) passed to compare_snapshots for each pair.
+        mode: "consecutive" = compare (s0,s1), (s1,s2), ...; "baseline" = compare (s0,s1), (s0,s2), ....
+        read_csv_kwargs: Optional dict for pd.read_csv when an element of snapshots is a path.
+        **compare_snapshots_kwargs: Forwarded to compare_snapshots (e.g. min_overall_health, fail_on_volume_drop_pct, use_default_thresholds).
+
+    Returns:
+        {
+            "passed": bool (True iff all pairs passed),
+            "warnings": list[str] (all per-pair warnings, prefixed with pair id),
+            "results": list[dict] (one compare_snapshots result per pair, with "baseline_index", "current_index", "baseline_label", "current_label"),
+        }
+    """
+    if len(snapshots) < 2:
+        return {
+            "passed": True,
+            "warnings": [],
+            "results": [],
+        }
+    read_kwargs = read_csv_kwargs or {}
+    loaded: List[pd.DataFrame] = [load_dataframe(s, **read_kwargs) for s in snapshots]
+
+    pairs: List[tuple] = []
+    if mode == "consecutive":
+        for i in range(len(loaded) - 1):
+            pairs.append((i, i + 1))
+    else:
+        for i in range(1, len(loaded)):
+            pairs.append((0, i))
+
+    results: List[Dict[str, Any]] = []
+    all_warnings: List[str] = []
+    all_passed = True
+
+    for idx_b, idx_c in pairs:
+        label_b = f"snapshot_{idx_b}"
+        label_c = f"snapshot_{idx_c}"
+        result = compare_snapshots(
+            loaded[idx_b],
+            loaded[idx_c],
+            rules_runner,
+            dataset_name_baseline=label_b,
+            dataset_name_current=label_c,
+            **compare_snapshots_kwargs,
+        )
+        result["baseline_index"] = idx_b
+        result["current_index"] = idx_c
+        result["baseline_label"] = label_b
+        result["current_label"] = label_c
+        results.append(result)
+        if not result["passed"]:
+            all_passed = False
+        for w in result.get("warnings", []):
+            all_warnings.append(f"[{label_b} vs {label_c}] {w}")
+
+    return {
+        "passed": all_passed,
+        "warnings": all_warnings,
+        "results": results,
     }

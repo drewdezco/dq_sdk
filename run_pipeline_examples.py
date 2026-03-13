@@ -2,16 +2,21 @@
 Pipeline integration use cases — Sectioned for Databricks (or run as one script).
 
 Copy each section below into a separate Databricks cell, or run the whole file.
-Demonstrates: compare_schema, compare_volume, detect_identical_or_stale, compare_snapshots.
-All data is defined inline; no external files required.
+Demonstrates: compare_schema, compare_volume, detect_identical_or_stale, compare_snapshots,
+load_dataframe, compare_snapshots_multi, use_default_thresholds. All data is defined inline
+(or written to temp CSVs in the CSV section); no pre-existing external files required.
 """
 
+import os
+import tempfile
 import pandas as pd
 from data_quality import (
     compare_schema,
+    compare_snapshots,
+    compare_snapshots_multi,
     compare_volume,
     detect_identical_or_stale,
-    compare_snapshots,
+    load_dataframe,
     DataQualityChecker,
 )
 
@@ -228,3 +233,87 @@ print("compare_snapshots (identical data -> stale warning):")
 print("  passed:", result["passed"])
 print("  stale:", result["stale"])
 print("  warnings:", result["warnings"])
+
+# =============================================================================
+# SECTION 9: load_dataframe and compare_snapshots with CSV paths
+# =============================================================================
+# Load snapshots from CSV paths; compare_snapshots accepts paths and loads via load_dataframe.
+
+# Step 1: Define a rules_runner (reuse from earlier or minimal).
+def rules_runner_for_csv(df, results):
+    c = DataQualityChecker(df, dataset_name="")
+    c.df = df
+    c.results = results
+    c.expect_column_values_to_not_be_null("id")
+
+# Step 2: Write two CSVs to a temp dir and pass paths to compare_snapshots.
+with tempfile.TemporaryDirectory() as tmpdir:
+    baseline_path = os.path.join(tmpdir, "baseline.csv")
+    current_path = os.path.join(tmpdir, "current.csv")
+    pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]}).to_csv(baseline_path, index=False)
+    pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]}).to_csv(current_path, index=False)
+    result = compare_snapshots(
+        baseline_path, current_path, rules_runner_for_csv,
+        warn_on_stale=False,
+    )
+    print("compare_snapshots with CSV paths:")
+    print("  passed:", result["passed"])
+    print("  volume:", result["volume"])
+
+# Step 3: load_dataframe helper — pass DataFrame (passthrough) or path.
+df_from_memory = pd.DataFrame({"a": [1, 2]})
+assert load_dataframe(df_from_memory) is df_from_memory
+# With a path, load_dataframe(source, **read_csv_kwargs) calls pd.read_csv.
+
+# =============================================================================
+# SECTION 10: compare_snapshots_multi — consecutive and baseline modes
+# =============================================================================
+# Snapshot order = list order (index 0 = oldest). Consecutive: (s0,s1), (s1,s2), ...; Baseline: (s0,s1), (s0,s2), ...
+
+# Step 1: Three snapshots (week1, week2, week3).
+df_week1 = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+df_week2 = pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]})
+df_week3 = pd.DataFrame({"id": [1, 2, 3, 4, 5], "x": [10, 20, 30, 40, 50]})
+
+# Step 2: Consecutive mode — compare week1 vs week2, then week2 vs week3.
+multi_consecutive = compare_snapshots_multi(
+    [df_week1, df_week2, df_week3],
+    rules_runner_for_csv,
+    mode="consecutive",
+    warn_on_stale=False,
+)
+print("compare_snapshots_multi (mode='consecutive'):")
+print("  passed:", multi_consecutive["passed"])
+print("  number of pair results:", len(multi_consecutive["results"]))
+print("  first pair baseline_label:", multi_consecutive["results"][0]["baseline_label"], "current_label:", multi_consecutive["results"][0]["current_label"])
+print("  second pair baseline_label:", multi_consecutive["results"][1]["baseline_label"], "current_label:", multi_consecutive["results"][1]["current_label"])
+
+# Step 3: Baseline mode — compare week1 vs week2, week1 vs week3.
+multi_baseline = compare_snapshots_multi(
+    [df_week1, df_week2, df_week3],
+    rules_runner_for_csv,
+    mode="baseline",
+    warn_on_stale=False,
+)
+print("\ncompare_snapshots_multi (mode='baseline'):")
+print("  passed:", multi_baseline["passed"])
+print("  number of pair results:", len(multi_baseline["results"]))
+print("  both pairs have baseline_index=0:", all(r["baseline_index"] == 0 for r in multi_baseline["results"]))
+
+# =============================================================================
+# SECTION 11: use_default_thresholds
+# =============================================================================
+# When use_default_thresholds=True, min_overall_health and fail_on_volume_drop_pct get defaults (80, -25) only if not set.
+
+# Step 1: No explicit thresholds; use_default_thresholds=True applies defaults.
+df_b = pd.DataFrame({"id": [1, 2, 3, 4, 5], "x": range(5)})
+df_c = pd.DataFrame({"id": [1, 2], "x": [0, 1]})
+result_defaults = compare_snapshots(
+    df_b, df_c, rules_runner_for_csv,
+    use_default_thresholds=True,
+    warn_on_stale=False,
+)
+print("compare_snapshots (use_default_thresholds=True, no explicit thresholds):")
+print("  passed:", result_defaults["passed"])
+print("  volume pct_change:", result_defaults["volume"]["pct_change"])
+print("  (default fail_on_volume_drop_pct=-25; -60% triggers fail)")

@@ -3,10 +3,13 @@
 import pytest
 import pandas as pd
 from data_quality import (
+    DEFAULT_THRESHOLDS,
     compare_schema,
+    compare_snapshots,
+    compare_snapshots_multi,
     compare_volume,
     detect_identical_or_stale,
-    compare_snapshots,
+    load_dataframe,
     DataQualityChecker,
 )
 
@@ -227,3 +230,147 @@ def test_compare_snapshots_min_per_dimension():
     )
     assert out["passed"] is False
     assert "Completeness" in out["below_threshold"]["dimensions"]
+
+
+# -------- load_dataframe --------
+
+
+def test_load_dataframe_passthrough():
+    df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    out = load_dataframe(df)
+    assert out is df
+    pd.testing.assert_frame_equal(out, df)
+
+
+def test_load_dataframe_str_path(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    df = pd.DataFrame({"id": [1, 2], "x": [10, 20]})
+    df.to_csv(csv_path, index=False)
+    out = load_dataframe(str(csv_path))
+    pd.testing.assert_frame_equal(out, df)
+
+
+def test_load_dataframe_path_object(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    df = pd.DataFrame({"id": [1, 2], "x": [10, 20]})
+    df.to_csv(csv_path, index=False)
+    out = load_dataframe(csv_path)
+    pd.testing.assert_frame_equal(out, df)
+
+
+def test_load_dataframe_read_csv_kwargs(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    df = pd.DataFrame({"id": [1, 2], "x": [10, 20]})
+    df.to_csv(csv_path, index=False, sep="\t")
+    out = load_dataframe(csv_path, sep="\t")
+    pd.testing.assert_frame_equal(out, df)
+
+
+# -------- compare_snapshots with paths --------
+
+
+def test_compare_snapshots_with_paths(tmp_path):
+    df_b = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+    df_c = pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]})
+    path_b = tmp_path / "baseline.csv"
+    path_c = tmp_path / "current.csv"
+    df_b.to_csv(path_b, index=False)
+    df_c.to_csv(path_c, index=False)
+    out = compare_snapshots(
+        path_b, path_c, _simple_rules_runner,
+        warn_on_stale=False,
+    )
+    assert out["passed"] is True
+    assert out["volume"]["row_count_baseline"] == 3
+    assert out["volume"]["row_count_current"] == 4
+
+
+# -------- use_default_thresholds --------
+
+
+def test_use_default_thresholds_applies_defaults_when_none():
+    df_b = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+    df_c = pd.DataFrame({"id": [1, 2], "x": [10, 20]})
+    out = compare_snapshots(
+        df_b, df_c, _simple_rules_runner,
+        use_default_thresholds=True,
+        warn_on_stale=False,
+    )
+    assert out["passed"] is False
+    assert any("Volume drop" in w for w in out["warnings"])
+    assert out["volume"]["pct_change"] == -33.33 or abs(out["volume"]["pct_change"] - (-100 / 3)) < 0.1
+
+
+def test_use_default_thresholds_does_not_override_explicit():
+    df_b = pd.DataFrame({"id": [1, 2, 3, 4, 5], "x": range(5)})
+    df_c = pd.DataFrame({"id": [1, 2], "x": [0, 1]})
+    out = compare_snapshots(
+        df_b, df_c, _simple_rules_runner,
+        use_default_thresholds=True,
+        fail_on_volume_drop_pct=-80,
+        warn_on_stale=False,
+    )
+    assert out["passed"] is True
+    assert out["volume"]["pct_change"] == -60.0
+
+
+# -------- compare_snapshots_multi --------
+
+
+def test_compare_snapshots_multi_fewer_than_two():
+    out = compare_snapshots_multi([pd.DataFrame({"id": [1]})], _simple_rules_runner, warn_on_stale=False)
+    assert out["passed"] is True
+    assert out["warnings"] == []
+    assert out["results"] == []
+
+
+def test_compare_snapshots_multi_consecutive_three():
+    df0 = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+    df1 = pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]})
+    df2 = pd.DataFrame({"id": [1, 2, 3, 4, 5], "x": [10, 20, 30, 40, 50]})
+    out = compare_snapshots_multi(
+        [df0, df1, df2],
+        _simple_rules_runner,
+        mode="consecutive",
+        warn_on_stale=False,
+    )
+    assert out["passed"] is True
+    assert len(out["results"]) == 2
+    assert out["results"][0]["baseline_index"] == 0 and out["results"][0]["current_index"] == 1
+    assert out["results"][0]["volume"]["row_count_baseline"] == 3 and out["results"][0]["volume"]["row_count_current"] == 4
+    assert out["results"][1]["baseline_index"] == 1 and out["results"][1]["current_index"] == 2
+    assert out["results"][1]["volume"]["row_count_baseline"] == 4 and out["results"][1]["volume"]["row_count_current"] == 5
+
+
+def test_compare_snapshots_multi_baseline_three():
+    df0 = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+    df1 = pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]})
+    df2 = pd.DataFrame({"id": [1, 2, 3, 4, 5], "x": [10, 20, 30, 40, 50]})
+    out = compare_snapshots_multi(
+        [df0, df1, df2],
+        _simple_rules_runner,
+        mode="baseline",
+        warn_on_stale=False,
+    )
+    assert out["passed"] is True
+    assert len(out["results"]) == 2
+    assert out["results"][0]["baseline_index"] == 0 and out["results"][0]["current_index"] == 1
+    assert out["results"][1]["baseline_index"] == 0 and out["results"][1]["current_index"] == 2
+
+
+def test_compare_snapshots_multi_aggregate_fail():
+    df0 = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
+    df1 = pd.DataFrame({"id": [1, 2, 3, 4], "x": [10, 20, 30, 40]})
+    df2 = pd.DataFrame({"id": [1, 2, None], "x": [10, 20, 30]})
+    out = compare_snapshots_multi(
+        [df0, df1, df2],
+        _simple_rules_runner,
+        mode="consecutive",
+        min_overall_health=100.0,
+        warn_on_stale=False,
+    )
+    assert out["passed"] is False
+    assert len(out["results"]) == 2
+    assert out["results"][0]["passed"] is True
+    assert out["results"][1]["passed"] is False
+    assert any("[snapshot_1 vs snapshot_2]" in w for w in out["warnings"])

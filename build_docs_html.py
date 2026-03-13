@@ -1,7 +1,7 @@
 """
-One-off script: convert README.md, ARCHITECTURE.md, VALIDATIONS_AND_DIMENSIONS.md
+One-off script: convert README.md, USAGE.md, ARCHITECTURE.md, VALIDATIONS_AND_DIMENSIONS.md, WALKTHROUGH.md
 to standalone HTML files with a shared executive-friendly theme.
-Output: README.html, ARCHITECTURE.html, VALIDATIONS_AND_DIMENSIONS.html, WALKTHROUGH.html at project root.
+Output: README.html, USAGE.html, ARCHITECTURE.html, VALIDATIONS_AND_DIMENSIONS.html, WALKTHROUGH.html at project root.
 """
 import re
 from pathlib import Path
@@ -297,6 +297,7 @@ def _replace_mermaid_block(match: re.Match) -> str:
 def main() -> None:
     configs = [
         (ROOT / "README.md", "README.html", "Modularized Data Quality — Overview"),
+        (ROOT / "USAGE.md", "USAGE.html", "Modularized Data Quality — Functionality and Use"),
         (ROOT / "docs" / "ARCHITECTURE.md", "ARCHITECTURE.html", "Data Quality Package — Architecture", True),
         (ROOT / "demos" / "VALIDATIONS_AND_DIMENSIONS.md", "VALIDATIONS_AND_DIMENSIONS.html", "Validations and Dimensions Reference"),
         (ROOT / "WALKTHROUGH.md", "WALKTHROUGH.html", "Data Quality Project — Walkthrough", True),
