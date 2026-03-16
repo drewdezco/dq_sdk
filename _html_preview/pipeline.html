@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Quality — Pipeline integration</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card: #fff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #0d6efd;
+      --border: #dee2e6;
+      --code-bg: #e9ecef;
+      --table-stripe: #f1f3f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 2.5rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text);
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    h4, h5, h6 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    ul, ol {
+      margin: 0 0 1rem;
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.35rem;
+    }
+    code {
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+    }
+    th {
+      background: var(--table-stripe);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.5rem 0 0.5rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--table-stripe);
+      color: var(--text-muted);
+    }
+    .mermaid {
+      margin: 1rem 0;
+      min-height: 120px;
+      text-align: center;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      min-width: 280px;
+      height: auto;
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="container">
+    <h2>Pipeline integration</h2>
+<p>Compare a current dataset to a baseline (for example, the same table one week earlier) and evaluate <strong>schema</strong>, <strong>volume</strong>, <strong>staleness</strong>, and <strong>health thresholds</strong> in one call. The pipeline helpers are thin, testable functions; your ingestion or orchestration layer decides whether to <strong>alert</strong>, <strong>stop</strong>, or <strong>proceed</strong> based on the returned result dict.</p>
+<p>This section is the source for <code>get_pipeline_markdown()</code> / <code>get_pipeline_html()</code> in <code>data_quality.docs_utils</code>.</p>
+<h3>Core helpers</h3>
+<ul>
+<li>
+<p><strong><code>compare_schema(df_baseline, df_current, check_dtypes=False)</code></strong><br />
+  Return added / removed columns and, optionally, dtype changes between two snapshots.</p>
+</li>
+<li>
+<p><strong><code>compare_volume(df_baseline, df_current, date_column=None)</code></strong><br />
+  Compare row counts and compute <code>pct_change</code>. When <code>date_column</code> is provided, also compute a <code>no_new_data</code> flag based on the max timestamp in each snapshot.</p>
+</li>
+<li>
+<p><strong><code>detect_identical_or_stale(df_baseline, df_current, key_column=None, tolerance_pct=0.0)</code></strong><br />
+  Detect identical or nearly-identical datasets (by row count and key set) and return <code>{"identical": bool, "stale_warning": bool, "reason": str | None}</code>.</p>
+</li>
+<li>
+<p><strong><code>load_dataframe(source, **read_csv_kwargs)</code></strong><br />
+  Normalize a snapshot source to a <code>pandas.DataFrame</code>. If <code>source</code> is already a DataFrame, it is returned unchanged; if it is a path/str, <code>pd.read_csv</code> is called.</p>
+</li>
+<li>
+<p><strong><code>compare_snapshots(...)</code></strong><br />
+  High-level baseline vs current comparison that:</p>
+</li>
+<li>runs <code>compare_schema</code>, <code>compare_volume</code>, and optional <code>detect_identical_or_stale</code></li>
+<li>runs a user-supplied <code>rules_runner(df, results)</code> on both snapshots</li>
+<li>enforces thresholds (<code>min_overall_health</code>, per-dimension minimums, <code>fail_on_schema_change</code>, <code>fail_on_volume_drop_pct</code>)</li>
+<li>
+<p>returns a single dict containing all of the above.</p>
+</li>
+<li>
+<p><strong><code>compare_snapshots_multi(snapshots, rules_runner, mode="consecutive"|"baseline", ...)</code></strong><br />
+  Run <code>compare_snapshots</code> across multiple snapshots in order:</p>
+</li>
+<li><code>"consecutive"</code>: compare <code>(s0, s1)</code>, <code>(s1, s2)</code>, ...</li>
+<li>
+<p><code>"baseline"</code>: compare <code>(s0, s1)</code>, <code>(s0, s2)</code>, ...</p>
+</li>
+<li>
+<p><strong><code>DEFAULT_THRESHOLDS</code> and <code>use_default_thresholds</code></strong><br />
+  A small dict that holds default values (such as <code>min_overall_health</code> and <code>fail_on_volume_drop_pct</code>). When calling <code>compare_snapshots(..., use_default_thresholds=True, ...)</code>, any of these values that you <strong>do not</strong> pass explicitly are filled from <code>DEFAULT_THRESHOLDS</code>.</p>
+</li>
+</ul>
+<h3>Typical pipeline call</h3>
+<pre><code class="language-python">from data_quality import compare_snapshots, DataQualityChecker
+
+def my_rules(df, results):
+    c = DataQualityChecker(df, dataset_name=&quot;&quot;)
+    c.df, c.results = df, results
+    c.expect_column_values_to_not_be_null(&quot;id&quot;)
+    c.expect_column_values_to_be_unique(&quot;id&quot;)
+
+# Load baseline and current (e.g. from tables, CSV files, or DataFrames)
+result = compare_snapshots(
+    df_baseline,
+    df_current,
+    my_rules,
+    min_overall_health=80,
+    fail_on_volume_drop_pct=-25,
+    date_column=&quot;updated_at&quot;,
+    warn_on_stale=True,
+    stale_key_column=&quot;id&quot;,
+)
+
+if not result[&quot;passed&quot;]:
+    # Alert or stop ingestion
+    print(result[&quot;warnings&quot;])
+</code></pre>
+<p>The same pattern is used throughout <code>examples.py</code> (Sections 7–9) and in <code>tests/test_pipeline.py</code>.</p>
+<h3>Scenarios and examples (see <code>examples.py</code>)</h3>
+<p>The pipeline helpers are demonstrated in detail in <code>examples.py</code>:</p>
+<ul>
+<li><strong>Schema change detection (Section 7 — Pipeline helpers)</strong>  </li>
+<li><strong>What:</strong> Use <code>compare_schema</code> to list added/removed columns and optional dtype changes.  </li>
+<li><strong>Why:</strong> Catch breaking schema changes (for example, dropped key columns or renamed metrics) before they hit downstream consumers.  </li>
+<li><strong>Benefit/impact:</strong> Allows you to fail fast or raise a targeted alert when <code>fail_on_schema_change=True</code>.  </li>
+<li>
+<p><strong>Expected result:</strong> <code>schema_changes["added"]</code> / <code>["removed"]</code> are non-empty; when <code>check_dtypes=True</code>, <code>schema_changes["type_changes"]</code> holds a list of changed columns.</p>
+</li>
+<li>
+<p><strong>Volume change and no-new-data detection (Section 7)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>compare_volume</code> to compute row-count deltas and the <code>no_new_data</code> flag when a date column is provided.  </li>
+<li><strong>Why:</strong> Detect cases where volume drops sharply or no new rows arrive even though a job ran.  </li>
+<li><strong>Benefit/impact:</strong> Lets you enforce <code>fail_on_volume_drop_pct</code> and/or alert on <code>no_new_data=True</code>.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>volume["pct_change"]</code> shows the percent change in row count.  </li>
+<li><code>volume["no_new_data"]</code> is <code>True</code> when <code>max(current[date]) &lt;= max(baseline[date])</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Stale data detection on key sets (Section 7)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>detect_identical_or_stale</code> (directly or via <code>compare_snapshots</code> with <code>warn_on_stale=True</code>) to check whether the current dataset is identical or nearly identical to the baseline.  </li>
+<li><strong>Why:</strong> Spot situations where data is accidentally reloaded or a job re-emits the same slice over and over.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>stale_warning=True</code> and a human-readable <code>reason</code> when row counts are the same and key sets overlap above the configured tolerance.</li>
+</ul>
+</li>
+<li>
+<p><strong>Single snapshot comparison: baseline vs current (Section 8 — <code>compare_snapshots</code>)</strong>  </p>
+</li>
+<li><strong>What:</strong> Run the same rules on baseline and current, then aggregate the results and apply thresholds.  </li>
+<li><strong>Why:</strong> Detect regression in overall health (or per-dimension scores) and combine this with schema/volume/stale checks.  </li>
+<li><strong>Benefit/impact:</strong> A single <code>result</code> dict drives go/no-go decisions.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>result["passed"]</code> is <code>False</code> when any of the following hold:  </li>
+<li>schema change and <code>fail_on_schema_change=True</code>  </li>
+<li>volume drop below <code>fail_on_volume_drop_pct</code>  </li>
+<li>overall health below <code>min_overall_health</code>  </li>
+<li>any dimension below its per-dimension minimum in <code>min_per_dimension</code>.  </li>
+<li><code>result["warnings"]</code> contains human-readable messages for schema changes, volume drops, and stale datasets.</li>
+</ul>
+</li>
+<li>
+<p><strong>Multi-snapshot comparison (Section 9 — <code>compare_snapshots_multi</code>)</strong>  </p>
+</li>
+<li><strong>What:</strong> Compare multiple snapshots either consecutively (<code>mode="consecutive"</code>) or all against the first (<code>mode="baseline"</code>).  </li>
+<li><strong>Why:</strong> Track how health and volume evolve over time, or validate a long migration where each step must not regress.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li>Returned dict has <code>"results"</code> (a list of <code>compare_snapshots</code> outputs, each annotated with <code>baseline_index</code>, <code>current_index</code>, <code>baseline_label</code>, <code>current_label</code>) and a top-level <code>"passed"</code> that is <code>True</code> only if all pairs passed.</li>
+</ul>
+</li>
+<li>
+<p><strong>CSV path support and <code>load_dataframe</code> (Section 9)</strong>  </p>
+</li>
+<li><strong>What:</strong> Pass file paths directly into <code>compare_snapshots</code> or <code>compare_snapshots_multi</code>; internally, <code>load_dataframe</code> converts them to DataFrames.  </li>
+<li><strong>Why:</strong> Make it easy to plug in CSV exports or files staged by your orchestration tool.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li>A call such as <code>compare_snapshots("baseline.csv", "current.csv", rules_runner, ...)</code> behaves the same as if you had passed DataFrames, with <code>load_dataframe</code> handling <code>pd.read_csv</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Default thresholds (Sections 9–10)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>use_default_thresholds=True</code> so that <code>compare_snapshots</code> fills in <code>min_overall_health</code> and <code>fail_on_volume_drop_pct</code> from <code>DEFAULT_THRESHOLDS</code> when you do not pass explicit values.  </li>
+<li><strong>Why:</strong> Provide safe defaults without hardcoding magic numbers throughout the codebase.  </li>
+<li><strong>Expected result:</strong>  <ul>
+<li>In <code>examples.py</code>, a large volume drop triggers a failure even when <code>fail_on_volume_drop_pct</code> is omitted, because the default is applied.</li>
+</ul>
+</li>
+</ul>
+<p>At the end of this section in <code>examples.py</code>, you can see all of these scenarios in action; the examples are designed to be copy-paste friendly for Databricks and other notebook environments.</p>
+<h3>Interpreting the pipeline result dict</h3>
+<p><code>compare_snapshots</code> returns a nested dict. The most important keys are:</p>
+<ul>
+<li><strong><code>passed: bool</code></strong> — overall go/no-go flag.</li>
+<li><strong><code>warnings: list[str]</code></strong> — human-readable messages explaining why a check failed or what to investigate.</li>
+<li><strong><code>schema_changes</code></strong> — output of <code>compare_schema</code> (added/removed columns and optional <code>type_changes</code> list).</li>
+<li><strong><code>volume</code></strong> — output of <code>compare_volume</code> (<code>row_count_baseline</code>, <code>row_count_current</code>, <code>pct_change</code>, <code>no_new_data</code>).</li>
+<li><strong><code>stale</code></strong> — output of <code>detect_identical_or_stale</code> when <code>warn_on_stale=True</code> (may be empty otherwise).</li>
+<li><strong><code>comparison</code></strong> — result of <code>compare_two_reports</code>, summarizing baseline vs current health and per-dimension/per-rule diffs.</li>
+<li><strong><code>below_threshold</code></strong> — dict with:  </li>
+<li><code>overall: bool</code> — whether overall health is below <code>min_overall_health</code>.  </li>
+<li><code>dimensions: list[str]</code> — names of dimensions whose scores fell below their respective minimums.</li>
+</ul>
+<p>Most pipelines only need to branch on <code>passed</code> and log or surface <code>warnings</code>, but all of the nested structures are available if you want to build dashboards or more detailed alerts.</p>
+  </div>
+  
+</body>
+</html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modularized Data Quality — Functionality and Use</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card: #fff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --accent: #0d6efd;
+      --border: #dee2e6;
+      --code-bg: #e9ecef;
+      --table-stripe: #f1f3f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 2.5rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text);
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    h4, h5, h6 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: var(--text);
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    ul, ol {
+      margin: 0 0 1rem;
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.35rem;
+    }
+    code {
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+    }
+    th {
+      background: var(--table-stripe);
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.5rem 0 0.5rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--table-stripe);
+      color: var(--text-muted);
+    }
+    .mermaid {
+      margin: 1rem 0;
+      min-height: 120px;
+      text-align: center;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      min-width: 280px;
+      height: auto;
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="container">
+    <h1>Functionality and use</h1>
+<p>This document describes functionality and how to use the library in detail. For a quick overview and install, see <a href="README.md">README.md</a>.</p>
+<h2>Data quality dimensions</h2>
+<p>The checker uses six standard dimensions. Each rule you run is tagged with one dimension; the <strong>overall health score</strong> is the average of <strong>per-dimension scores</strong> for dimensions that have at least one rule in the current run.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Accuracy</strong></td>
+<td>Data correctly represents the real-world object or event.</td>
+</tr>
+<tr>
+<td><strong>Completeness</strong></td>
+<td>All required data is present.</td>
+</tr>
+<tr>
+<td><strong>Consistency</strong></td>
+<td>Data is uniform across systems and datasets (e.g. column similarity).</td>
+</tr>
+<tr>
+<td><strong>Timeliness</strong></td>
+<td>Data is available when needed and up to date.</td>
+</tr>
+<tr>
+<td><strong>Validity</strong></td>
+<td>Data conforms to defined formats, rules, or constraints.</td>
+</tr>
+<tr>
+<td><strong>Uniqueness</strong></td>
+<td>No unintended duplicates exist.</td>
+</tr>
+</tbody>
+</table>
+<p>You can restrict which dimensions contribute to the score by passing <strong>dimensions_filter</strong> to <code>get_comprehensive_results</code> or <code>save_comprehensive_results_to_csv</code>. Valid names: <code>from data_quality import DIMENSIONS</code>.</p>
+<pre><code class="language-python">from data_quality import DataQualityChecker, DIMENSIONS
+
+checker = DataQualityChecker(df, dataset_name=&quot;My Dataset&quot;)
+checker.expect_column_values_to_not_be_null(&quot;id&quot;)
+checker.expect_column_values_to_be_unique(&quot;id&quot;)
+
+# Score from all dimensions present in results
+report = checker.get_comprehensive_results()
+
+# Score only from selected dimensions
+report = checker.get_comprehensive_results(
+    dimensions_filter=[&quot;Completeness&quot;, &quot;Validity&quot;],
+)
+</code></pre>
+<h2>Validations (expectations)</h2>
+<p>Available checks, grouped by dimension. Single-column methods take a column name; multi-column methods take a list of columns. For a full list with definitions, see <code>docs/VALIDATIONS_AND_DIMENSIONS.md</code>.</p>
+<blockquote>
+<p><strong>Tip</strong>: You can auto-generate validations based on your dataframe's characteristics. See the <a href="#auto-generating-validations">Auto-Generating Validations</a> section below.</p>
+</blockquote>
+<ul>
+<li><strong>Completeness</strong>  </li>
+<li><code>expect_column_values_to_not_be_null(column)</code> — no nulls in column  </li>
+<li>
+<p><code>expect_columns_values_to_not_be_null(columns)</code> — no nulls in any of the columns (per row)</p>
+</li>
+<li>
+<p><strong>Uniqueness</strong>  </p>
+</li>
+<li><code>expect_column_values_to_be_unique(column)</code> — all values unique  </li>
+<li>
+<p><code>expect_columns_values_to_be_unique(columns)</code> — combination of columns is unique</p>
+</li>
+<li>
+<p><strong>Validity</strong>  </p>
+</li>
+<li><code>expect_column_values_to_be_in_set(column, allowed_values)</code> — values in allowed set  </li>
+<li><code>expect_column_values_to_match_regex(column, pattern)</code> — values match regex  </li>
+<li><code>expect_column_values_to_be_in_range(column, min_val, max_val)</code> — numeric range  </li>
+<li><code>expect_column_values_to_be_in_date_range(column, min_date, max_date)</code> — date range  </li>
+<li><code>expect_columns_values_to_be_in_sets(columns, allowed_values)</code> — per-column allowed sets  </li>
+<li><code>expect_columns_values_to_match_patterns(columns, patterns_dict)</code> — per-column regex  </li>
+<li>
+<p><code>expect_columns_values_to_be_in_ranges(columns, ranges_dict)</code> — per-column numeric ranges</p>
+</li>
+<li>
+<p><strong>Timeliness</strong>  </p>
+</li>
+<li>
+<p><code>expect_column_values_to_be_recent(column, max_age_days, reference_date=None)</code> — dates within last N days</p>
+</li>
+<li>
+<p><strong>Accuracy</strong>  </p>
+</li>
+<li>
+<p><code>expect_column_values_to_match_reference(column, reference_series_or_set)</code> — values match a reference set or Series</p>
+</li>
+<li>
+<p><strong>Consistency</strong>  </p>
+</li>
+<li><code>analyze_column_similarity_levenshtein(column1, column2, similarity_threshold=0.8)</code> — similarity between two columns (appends a Consistency result)</li>
+</ul>
+<h3>Running expectations from JSON config</h3>
+<p>You can run expectations from a JSON/dictionary config using <code>run_rules_from_json(rules)</code>. The JSON structure maps expectation method names to lists of parameter dictionaries:</p>
+<pre><code class="language-python"># Manual JSON config
+rules = {
+    &quot;expect_column_values_to_not_be_null&quot;: [
+        {&quot;column&quot;: &quot;id&quot;}
+    ],
+    &quot;expect_column_values_to_be_unique&quot;: [
+        {&quot;column&quot;: &quot;id&quot;}
+    ],
+    &quot;expect_column_values_to_be_in_set&quot;: [
+        {&quot;column&quot;: &quot;status&quot;, &quot;allowed_values&quot;: [&quot;active&quot;, &quot;inactive&quot;, &quot;pending&quot;]}
+    ],
+    &quot;expect_column_values_to_be_in_range&quot;: [
+        {&quot;column&quot;: &quot;score&quot;, &quot;min_val&quot;: 0, &quot;max_val&quot;: 100}
+    ],
+    &quot;expect_column_values_to_match_regex&quot;: [
+        {&quot;column&quot;: &quot;email&quot;, &quot;pattern&quot;: r&quot;^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$&quot;}
+    ],
+    &quot;expect_column_values_to_be_in_date_range&quot;: [
+        {&quot;column&quot;: &quot;created_at&quot;, &quot;min_date&quot;: &quot;2024-01-01&quot;, &quot;max_date&quot;: &quot;2024-12-31&quot;}
+    ],
+    &quot;expect_column_values_to_be_recent&quot;: [
+        {&quot;column&quot;: &quot;updated_at&quot;, &quot;max_age_days&quot;: 30, &quot;reference_date&quot;: &quot;2024-06-01&quot;}
+    ]
+}
+
+checker = DataQualityChecker(df)
+checker.run_rules_from_json(rules)
+</code></pre>
+<p><strong>Auto-generating JSON from suggestions:</strong></p>
+<p>You can also convert auto-generated suggestions directly to JSON format:</p>
+<pre><code class="language-python">from data_quality import DataQualityChecker
+from data_quality.suggestion import suggestions_to_json
+
+checker = DataQualityChecker(df)
+
+# Generate suggestions
+suggestions = checker.generate_suggestions()
+
+# Convert to JSON format
+json_rules = suggestions_to_json(suggestions)
+
+# Run the JSON rules
+checker.run_rules_from_json(json_rules)
+</code></pre>
+<p><strong>JSON structure:</strong><br />
+- Top-level keys are expectation method names (e.g., <code>"expect_column_values_to_not_be_null"</code>)<br />
+- Each key maps to a list of parameter dictionaries<br />
+- Each parameter dict must include <code>"column"</code> and any other required parameters for that expectation type<br />
+- Multiple columns can use the same expectation type by adding multiple dicts to the list</p>
+<h2>Auto-generating validations</h2>
+<p>Instead of manually defining validations, you can automatically generate suggestions based on your dataframe's characteristics:</p>
+<pre><code class="language-python">checker = DataQualityChecker(df, dataset_name=&quot;My Dataset&quot;)
+
+# Generate suggestions for all columns
+suggestions = checker.generate_suggestions()
+for suggestion in suggestions:
+    print(f&quot;{suggestion['column']}: {suggestion['method']}&quot;)
+    print(f&quot;  Reason: {suggestion['reason']}&quot;)
+    print(f&quot;  Confidence: {suggestion['confidence']:.2f}&quot;)
+
+# Apply suggestions automatically
+checker.suggest_and_apply(auto_apply=True)
+
+# Or apply selectively based on confidence
+high_confidence = [s for s in suggestions if s['confidence'] &gt; 0.8]
+checker.apply_suggestions(high_confidence)
+</code></pre>
+<p><strong>Customizing suggestions</strong></p>
+<p>You can customize thresholds and behavior:</p>
+<pre><code class="language-python">options = {
+    &quot;null_rate_threshold&quot;: 0.05,  # Suggest not_null if &lt;5% nulls
+    &quot;uniqueness_threshold&quot;: 0.95,  # Suggest unique if &gt;95% unique
+    &quot;categorical_max_distinct&quot;: 20,  # Max distinct values for &quot;in_set&quot; suggestion
+    &quot;pattern_detection_enabled&quot;: True,  # Enable regex pattern detection
+}
+
+suggestions = checker.generate_suggestions(options=options)
+</code></pre>
+<p><strong>What gets suggested</strong></p>
+<p>The auto-suggestion feature analyzes each column and suggests validations based on:</p>
+<ul>
+<li><strong>Completeness</strong>: Low null rates → <code>expect_column_values_to_not_be_null</code></li>
+<li><strong>Uniqueness</strong>: High uniqueness → <code>expect_column_values_to_be_unique</code></li>
+<li><strong>Categorical data</strong>: Low cardinality → <code>expect_column_values_to_be_in_set</code> with observed values</li>
+<li><strong>Numeric ranges</strong>: Min/max values → <code>expect_column_values_to_be_in_range</code></li>
+<li><strong>Date ranges</strong>: Min/max dates → <code>expect_column_values_to_be_in_date_range</code></li>
+<li><strong>Patterns</strong>: Detects common formats (email, UUID, IDs) → <code>expect_column_values_to_match_regex</code></li>
+<li><strong>Timeliness</strong>: Recent dates → <code>expect_column_values_to_be_recent</code></li>
+</ul>
+<h2>Comparing two datasets</h2>
+<p>Join two DataFrames on a key field (or list of key fields) and assess <strong>join quality</strong> (key match rates, only-in-left/right counts) and <strong>reconciliation</strong> (exact match rate and optional similarity for related columns). You can also run the same expectations on both datasets and compare the two reports.</p>
+<p><strong>Reconciliation on a key</strong></p>
+<pre><code class="language-python">import pandas as pd
+from data_quality import reconcile_on_key, DatasetComparator, DataQualityChecker
+
+df_left = pd.read_csv(&quot;warehouse_orders.csv&quot;)
+df_right = pd.read_csv(&quot;source_orders.csv&quot;)
+results = []
+summary = reconcile_on_key(
+    df_left, df_right,
+    key_column=&quot;order_id&quot;,
+    results=results,
+    right_name=&quot;source&quot;,
+    include_similarity=True,
+    similarity_threshold=0.9,
+)
+# results now contains join quality + per-column match and similarity; use with get_comprehensive_results
+checker = DataQualityChecker(df_left, dataset_name=&quot;Warehouse&quot;)
+checker.results = results
+report = checker.get_comprehensive_results()
+</code></pre>
+<p>Or use the <strong>DatasetComparator</strong> facade:</p>
+<pre><code class="language-python">from data_quality import DatasetComparator
+
+comp = DatasetComparator(df_warehouse, df_source, key_column=&quot;id&quot;, name_a=&quot;WH&quot;, name_b=&quot;Source&quot;)
+summary = comp.reconcile(include_similarity=True)
+# comp.results holds all reconciliation results
+</code></pre>
+<p><strong>Run same rules on both and compare reports</strong></p>
+<pre><code class="language-python">from data_quality import run_same_rules_on_two_datasets, compare_two_reports
+
+def my_rules(df, results):
+    c = DataQualityChecker(df, dataset_name=&quot;&quot;)
+    c.df, c.results = df, results
+    c.expect_column_values_to_not_be_null(&quot;id&quot;)
+    c.expect_column_values_to_be_unique(&quot;id&quot;)
+
+report_a, report_b = run_same_rules_on_two_datasets(
+    df_a, df_b, my_rules, dataset_name_a=&quot;A&quot;, dataset_name_b=&quot;B&quot;
+)
+diff = compare_two_reports(report_a, report_b)
+# diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
+</code></pre>
+<h2>Pipeline integration</h2>
+<p>Compare a current dataset to a baseline (for example, the same table one week earlier) and evaluate <strong>schema</strong>, <strong>volume</strong>, <strong>staleness</strong>, and <strong>health thresholds</strong> in one call. The pipeline helpers are thin, testable functions; your ingestion or orchestration layer decides whether to <strong>alert</strong>, <strong>stop</strong>, or <strong>proceed</strong> based on the returned result dict.</p>
+<p>This section is the source for <code>get_pipeline_markdown()</code> / <code>get_pipeline_html()</code> in <code>data_quality.docs_utils</code>.</p>
+<h3>Core helpers</h3>
+<ul>
+<li>
+<p><strong><code>compare_schema(df_baseline, df_current, check_dtypes=False)</code></strong><br />
+  Return added / removed columns and, optionally, dtype changes between two snapshots.</p>
+</li>
+<li>
+<p><strong><code>compare_volume(df_baseline, df_current, date_column=None)</code></strong><br />
+  Compare row counts and compute <code>pct_change</code>. When <code>date_column</code> is provided, also compute a <code>no_new_data</code> flag based on the max timestamp in each snapshot.</p>
+</li>
+<li>
+<p><strong><code>detect_identical_or_stale(df_baseline, df_current, key_column=None, tolerance_pct=0.0)</code></strong><br />
+  Detect identical or nearly-identical datasets (by row count and key set) and return <code>{"identical": bool, "stale_warning": bool, "reason": str | None}</code>.</p>
+</li>
+<li>
+<p><strong><code>load_dataframe(source, **read_csv_kwargs)</code></strong><br />
+  Normalize a snapshot source to a <code>pandas.DataFrame</code>. If <code>source</code> is already a DataFrame, it is returned unchanged; if it is a path/str, <code>pd.read_csv</code> is called.</p>
+</li>
+<li>
+<p><strong><code>compare_snapshots(...)</code></strong><br />
+  High-level baseline vs current comparison that:</p>
+</li>
+<li>runs <code>compare_schema</code>, <code>compare_volume</code>, and optional <code>detect_identical_or_stale</code></li>
+<li>runs a user-supplied <code>rules_runner(df, results)</code> on both snapshots</li>
+<li>enforces thresholds (<code>min_overall_health</code>, per-dimension minimums, <code>fail_on_schema_change</code>, <code>fail_on_volume_drop_pct</code>)</li>
+<li>
+<p>returns a single dict containing all of the above.</p>
+</li>
+<li>
+<p><strong><code>compare_snapshots_multi(snapshots, rules_runner, mode="consecutive"|"baseline", ...)</code></strong><br />
+  Run <code>compare_snapshots</code> across multiple snapshots in order:</p>
+</li>
+<li><code>"consecutive"</code>: compare <code>(s0, s1)</code>, <code>(s1, s2)</code>, ...</li>
+<li>
+<p><code>"baseline"</code>: compare <code>(s0, s1)</code>, <code>(s0, s2)</code>, ...</p>
+</li>
+<li>
+<p><strong><code>DEFAULT_THRESHOLDS</code> and <code>use_default_thresholds</code></strong><br />
+  A small dict that holds default values (such as <code>min_overall_health</code> and <code>fail_on_volume_drop_pct</code>). When calling <code>compare_snapshots(..., use_default_thresholds=True, ...)</code>, any of these values that you <strong>do not</strong> pass explicitly are filled from <code>DEFAULT_THRESHOLDS</code>.</p>
+</li>
+</ul>
+<h3>Typical pipeline call</h3>
+<pre><code class="language-python">from data_quality import compare_snapshots, DataQualityChecker
+
+def my_rules(df, results):
+    c = DataQualityChecker(df, dataset_name=&quot;&quot;)
+    c.df, c.results = df, results
+    c.expect_column_values_to_not_be_null(&quot;id&quot;)
+    c.expect_column_values_to_be_unique(&quot;id&quot;)
+
+# Load baseline and current (e.g. from tables, CSV files, or DataFrames)
+result = compare_snapshots(
+    df_baseline,
+    df_current,
+    my_rules,
+    min_overall_health=80,
+    fail_on_volume_drop_pct=-25,
+    date_column=&quot;updated_at&quot;,
+    warn_on_stale=True,
+    stale_key_column=&quot;id&quot;,
+)
+
+if not result[&quot;passed&quot;]:
+    # Alert or stop ingestion
+    print(result[&quot;warnings&quot;])
+</code></pre>
+<p>The same pattern is used throughout <code>examples.py</code> (Sections 7–9) and in <code>tests/test_pipeline.py</code>.</p>
+<h3>Scenarios and examples (see <code>examples.py</code>)</h3>
+<p>The pipeline helpers are demonstrated in detail in <code>examples.py</code>:</p>
+<ul>
+<li><strong>Schema change detection (Section 7 — Pipeline helpers)</strong>  </li>
+<li><strong>What:</strong> Use <code>compare_schema</code> to list added/removed columns and optional dtype changes.  </li>
+<li><strong>Why:</strong> Catch breaking schema changes (for example, dropped key columns or renamed metrics) before they hit downstream consumers.  </li>
+<li><strong>Benefit/impact:</strong> Allows you to fail fast or raise a targeted alert when <code>fail_on_schema_change=True</code>.  </li>
+<li>
+<p><strong>Expected result:</strong> <code>schema_changes["added"]</code> / <code>["removed"]</code> are non-empty; when <code>check_dtypes=True</code>, <code>schema_changes["type_changes"]</code> holds a list of changed columns.</p>
+</li>
+<li>
+<p><strong>Volume change and no-new-data detection (Section 7)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>compare_volume</code> to compute row-count deltas and the <code>no_new_data</code> flag when a date column is provided.  </li>
+<li><strong>Why:</strong> Detect cases where volume drops sharply or no new rows arrive even though a job ran.  </li>
+<li><strong>Benefit/impact:</strong> Lets you enforce <code>fail_on_volume_drop_pct</code> and/or alert on <code>no_new_data=True</code>.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>volume["pct_change"]</code> shows the percent change in row count.  </li>
+<li><code>volume["no_new_data"]</code> is <code>True</code> when <code>max(current[date]) &lt;= max(baseline[date])</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Stale data detection on key sets (Section 7)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>detect_identical_or_stale</code> (directly or via <code>compare_snapshots</code> with <code>warn_on_stale=True</code>) to check whether the current dataset is identical or nearly identical to the baseline.  </li>
+<li><strong>Why:</strong> Spot situations where data is accidentally reloaded or a job re-emits the same slice over and over.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>stale_warning=True</code> and a human-readable <code>reason</code> when row counts are the same and key sets overlap above the configured tolerance.</li>
+</ul>
+</li>
+<li>
+<p><strong>Single snapshot comparison: baseline vs current (Section 8 — <code>compare_snapshots</code>)</strong>  </p>
+</li>
+<li><strong>What:</strong> Run the same rules on baseline and current, then aggregate the results and apply thresholds.  </li>
+<li><strong>Why:</strong> Detect regression in overall health (or per-dimension scores) and combine this with schema/volume/stale checks.  </li>
+<li><strong>Benefit/impact:</strong> A single <code>result</code> dict drives go/no-go decisions.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li><code>result["passed"]</code> is <code>False</code> when any of the following hold:  </li>
+<li>schema change and <code>fail_on_schema_change=True</code>  </li>
+<li>volume drop below <code>fail_on_volume_drop_pct</code>  </li>
+<li>overall health below <code>min_overall_health</code>  </li>
+<li>any dimension below its per-dimension minimum in <code>min_per_dimension</code>.  </li>
+<li><code>result["warnings"]</code> contains human-readable messages for schema changes, volume drops, and stale datasets.</li>
+</ul>
+</li>
+<li>
+<p><strong>Multi-snapshot comparison (Section 9 — <code>compare_snapshots_multi</code>)</strong>  </p>
+</li>
+<li><strong>What:</strong> Compare multiple snapshots either consecutively (<code>mode="consecutive"</code>) or all against the first (<code>mode="baseline"</code>).  </li>
+<li><strong>Why:</strong> Track how health and volume evolve over time, or validate a long migration where each step must not regress.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li>Returned dict has <code>"results"</code> (a list of <code>compare_snapshots</code> outputs, each annotated with <code>baseline_index</code>, <code>current_index</code>, <code>baseline_label</code>, <code>current_label</code>) and a top-level <code>"passed"</code> that is <code>True</code> only if all pairs passed.</li>
+</ul>
+</li>
+<li>
+<p><strong>CSV path support and <code>load_dataframe</code> (Section 9)</strong>  </p>
+</li>
+<li><strong>What:</strong> Pass file paths directly into <code>compare_snapshots</code> or <code>compare_snapshots_multi</code>; internally, <code>load_dataframe</code> converts them to DataFrames.  </li>
+<li><strong>Why:</strong> Make it easy to plug in CSV exports or files staged by your orchestration tool.  </li>
+<li>
+<p><strong>Expected result:</strong>  </p>
+<ul>
+<li>A call such as <code>compare_snapshots("baseline.csv", "current.csv", rules_runner, ...)</code> behaves the same as if you had passed DataFrames, with <code>load_dataframe</code> handling <code>pd.read_csv</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Default thresholds (Sections 9–10)</strong>  </p>
+</li>
+<li><strong>What:</strong> Use <code>use_default_thresholds=True</code> so that <code>compare_snapshots</code> fills in <code>min_overall_health</code> and <code>fail_on_volume_drop_pct</code> from <code>DEFAULT_THRESHOLDS</code> when you do not pass explicit values.  </li>
+<li><strong>Why:</strong> Provide safe defaults without hardcoding magic numbers throughout the codebase.  </li>
+<li><strong>Expected result:</strong>  <ul>
+<li>In <code>examples.py</code>, a large volume drop triggers a failure even when <code>fail_on_volume_drop_pct</code> is omitted, because the default is applied.</li>
+</ul>
+</li>
+</ul>
+<p>At the end of this section in <code>examples.py</code>, you can see all of these scenarios in action; the examples are designed to be copy-paste friendly for Databricks and other notebook environments.</p>
+<h3>Interpreting the pipeline result dict</h3>
+<p><code>compare_snapshots</code> returns a nested dict. The most important keys are:</p>
+<ul>
+<li><strong><code>passed: bool</code></strong> — overall go/no-go flag.</li>
+<li><strong><code>warnings: list[str]</code></strong> — human-readable messages explaining why a check failed or what to investigate.</li>
+<li><strong><code>schema_changes</code></strong> — output of <code>compare_schema</code> (added/removed columns and optional <code>type_changes</code> list).</li>
+<li><strong><code>volume</code></strong> — output of <code>compare_volume</code> (<code>row_count_baseline</code>, <code>row_count_current</code>, <code>pct_change</code>, <code>no_new_data</code>).</li>
+<li><strong><code>stale</code></strong> — output of <code>detect_identical_or_stale</code> when <code>warn_on_stale=True</code> (may be empty otherwise).</li>
+<li><strong><code>comparison</code></strong> — result of <code>compare_two_reports</code>, summarizing baseline vs current health and per-dimension/per-rule diffs.</li>
+<li><strong><code>below_threshold</code></strong> — dict with:  </li>
+<li><code>overall: bool</code> — whether overall health is below <code>min_overall_health</code>.  </li>
+<li><code>dimensions: list[str]</code> — names of dimensions whose scores fell below their respective minimums.</li>
+</ul>
+<p>Most pipelines only need to branch on <code>passed</code> and log or surface <code>warnings</code>, but all of the nested structures are available if you want to build dashboards or more detailed alerts.</p>
+<h2>Test suite</h2>
+<p>Tests live in <code>tests/</code> and use <strong>pytest</strong>. Coverage runs from unit tests (individual functions) through integration (several modules together) to end-to-end (full checker flow including CSV output).</p>
+<p><strong>Install and run</strong></p>
+<pre><code class="language-bash">pip install -e &quot;.[dev]&quot;
+</code></pre>
+<p>Then run the full suite (verbose):</p>
+<pre><code class="language-bash">pytest tests/ -v
+</code></pre>
+<p>If <code>pytest</code> is not on your PATH (e.g. on some Windows setups), use:</p>
+<pre><code class="language-bash">python -m pytest tests/ -v
+</code></pre>
+<p><strong>What to run</strong></p>
+<ul>
+<li><strong>Full suite:</strong> <code>pytest tests/ -v</code> (or <code>python -m pytest tests/ -v</code>)</li>
+<li><strong>Exclude end-to-end</strong> (faster, unit + integration only): <code>pytest tests/ -v -m "not e2e"</code></li>
+<li><strong>Single file:</strong> <code>pytest tests/test_expectations.py -v</code></li>
+</ul>
+<p><strong>What's covered</strong></p>
+<ul>
+<li><strong>test_utils.py</strong> — Unit tests for every utils function (normalize_columns, Levenshtein, classify_data_type, quality_scores, is_critical_data_element).</li>
+<li><strong>test_expectations.py</strong> — Unit tests for each expectation (pass/fail, single and multi-column).</li>
+<li><strong>test_similarity.py</strong> — Unit tests for similarity analysis and summary/detailed helpers.</li>
+<li><strong>test_reporting.py</strong> — Unit tests for <code>get_comprehensive_results</code> and flatten; integration tests for <code>save_*</code> to CSV (using a temp path).</li>
+<li><strong>test_checker.py</strong> — Unit tests for checker state and single methods; integration tests for multi-step flows without disk; includes tests for suggestion generation and application methods.</li>
+<li><strong>test_suggestion.py</strong> — Unit tests for suggestion generation logic, pattern detection, and analysis functions.</li>
+<li><strong>test_e2e.py</strong> — End-to-end: create checker, run expectations and similarity, get report, save CSVs; asserts on files and report (marked <code>@pytest.mark.e2e</code>); includes end-to-end test for suggestion workflow.</li>
+<li><strong>test_comparison.py</strong> — Unit and integration tests for cross-dataset comparison: <code>reconcile_on_key</code> (join quality, match rates, similarity), <code>compare_two_reports</code>, <code>run_same_rules_on_two_datasets</code>, <code>DatasetComparator</code>.</li>
+<li><strong>test_pipeline.py</strong> — Unit and integration tests for pipeline: <code>compare_schema</code>, <code>compare_volume</code>, <code>detect_identical_or_stale</code>, <code>compare_snapshots</code>, <code>load_dataframe</code>, <code>compare_snapshots_multi</code>, default thresholds.</li>
+</ul>
+<h2>Modularization (changelog)</h2>
+<p>The original single-file <code>data_quality_checker.py</code> was split into a package while keeping the same public API:</p>
+<ul>
+<li><strong>utils.py</strong> — <code>normalize_columns</code>, Levenshtein helpers, <code>classify_data_type</code>, <code>calculate_quality_scores</code>, <code>is_critical_data_element</code></li>
+<li><strong>expectations.py</strong> — All <code>expect_column_*</code> and <code>expect_columns_*</code> logic as functions <code>(df, results, ...)</code></li>
+<li><strong>similarity.py</strong> — Levenshtein analysis and <code>get_similarity_summary_table</code> / <code>get_detailed_similarity_comparisons</code></li>
+<li><strong>reporting.py</strong> — <code>get_comprehensive_results</code>, <code>save_comprehensive_results_to_csv</code>, <code>save_field_summary_to_csv</code>, <code>flatten_comprehensive_results</code></li>
+<li><strong>checker.py</strong> — <code>DataQualityChecker</code> holds state and delegates to the above; includes <code>run_rules_from_json</code> and suggestion methods (<code>generate_suggestions</code>, <code>apply_suggestions</code>, <code>suggest_and_apply</code>)</li>
+<li><strong>suggestion.py</strong> — Auto-generation of validation suggestions based on dataframe analysis (<code>analyze_column_for_suggestions</code>, <code>generate_suggestions</code>, <code>suggestions_to_json</code>)</li>
+<li><strong>comparison.py</strong> — Cross-dataset: <code>reconcile_on_key</code>, <code>get_reconciliation_diffs</code>, <code>run_same_rules_on_two_datasets</code>, <code>compare_two_reports</code>, <code>DatasetComparator</code></li>
+<li><strong>pipeline.py</strong> — Baseline vs current comparison: <code>compare_schema</code>, <code>compare_volume</code>, <code>detect_identical_or_stale</code>, <code>compare_snapshots</code>, <code>load_dataframe</code>, <code>compare_snapshots_multi</code>, <code>DEFAULT_THRESHOLDS</code></li>
+</ul>
+  </div>
+  
+</body>
+</html>

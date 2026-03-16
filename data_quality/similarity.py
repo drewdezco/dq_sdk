@@ -88,8 +88,13 @@ def analyze_column_similarity_levenshtein(
     return similarity_analysis
 
 
-def get_similarity_summary_table(results, similarity_threshold=0.8):
-    """Build a summary DataFrame of all similarity results in results list."""
+def get_similarity_summary_table(results, similarity_threshold: float = 0.8) -> pd.DataFrame:
+    """
+    Build a summary DataFrame of all similarity results in a results list.
+
+    Each row corresponds to a (column1, column2) pair analysed by
+    analyze_column_similarity_levenshtein, with basic counts and averages.
+    """
     similarity_results = [
         r for r in results if "levenshtein similarity" in r["rule"]
     ]
@@ -113,9 +118,17 @@ def get_similarity_summary_table(results, similarity_threshold=0.8):
 
 
 def get_detailed_similarity_comparisons(
-    results, column1, column2, min_similarity=0.0, max_similarity=1.0
-):
-    """Return a DataFrame of row-by-row comparisons for column1 vs column2 from results."""
+    results,
+    column1: str,
+    column2: str,
+    min_similarity: float = 0.0,
+    max_similarity: float = 1.0,
+) -> pd.DataFrame:
+    """
+    Return row-by-row comparisons for column1 vs column2 from a results list.
+
+    Filters the stored detailed_comparisons to the given similarity band.
+    """
     column_comparison = f"{column1} vs {column2}"
     similarity_result = None
     for r in results:

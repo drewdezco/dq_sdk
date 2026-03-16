@@ -12,16 +12,37 @@ import tempfile
 import pandas as pd
 from data_quality import (
     DataQualityChecker,
+    DEFAULT_THRESHOLDS,
+    DIMENSIONS,
+    DatasetComparator,
     compare_schema,
     compare_snapshots,
     compare_snapshots_multi,
+    compare_two_reports,
     compare_volume,
     detect_identical_or_stale,
+    get_architecture_html,
+    get_architecture_markdown,
     get_getting_started_guide,
+    get_getting_started_html,
+    get_pipeline_html,
     get_pipeline_markdown,
+    get_readme_html,
+    get_readme_markdown,
+    get_usage_html,
     get_usage_markdown,
+    get_reconciliation_diffs,
     load_dataframe,
     print_docs_overview,
+    reconcile_on_key,
+    run_same_rules_on_two_datasets,
+)
+
+from data_quality.suggestion import suggestions_to_json
+from data_quality.similarity import (
+    analyze_column_similarity_levenshtein,
+    get_detailed_similarity_comparisons,
+    get_similarity_summary_table,
 )
 
 
@@ -233,10 +254,14 @@ print("\n" + "=" * 80 + "\n")
 # =============================================================================
 # SECTION 7: Pipeline helpers — schema, volume, stale detection
 # =============================================================================
+# Show how to use the lower-level helpers that power the pipeline:
+# - compare_schema: what changed between two snapshots
+# - compare_volume: how row counts changed, and whether new data arrived
+# - detect_identical_or_stale: basic stale-data heuristics
 
 print("SECTION 7 — Pipeline helpers: schema, volume, stale detection")
 
-# Schema comparison
+# Step 1: Compare schemas between two DataFrames.
 df_baseline = pd.DataFrame({"id": [1, 2, 3], "name": ["a", "b", "c"], "amount": [10, 20, 30]})
 df_current = pd.DataFrame({"id": [1, 2, 3], "name": ["a", "b", "c"], "score": [10.0, 20.0, 30.0]})
 out = compare_schema(df_baseline, df_current, check_dtypes=False)
@@ -245,13 +270,14 @@ print("  added:", out["added"])
 print("  removed:", out["removed"])
 print("  type_changes:", out["type_changes"])
 
+# Step 2: Optionally include dtype changes in the schema diff.
 out_with_dtypes = compare_schema(df_baseline, df_current, check_dtypes=True)
 print("\nSchema diff (with dtypes):")
 print("  added:", out_with_dtypes["added"])
 print("  removed:", out_with_dtypes["removed"])
 print("  type_changes:", out_with_dtypes["type_changes"])
 
-# Volume comparison with and without date column
+# Step 3: Compare volume with and without a date column to detect new data.
 df_baseline = pd.DataFrame({
     "id": [1, 2, 3],
     "updated": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
@@ -279,7 +305,7 @@ out_stale = compare_volume(df_baseline, df_stale, date_column="updated")
 print("\nVolume when current has same max date as baseline:")
 print("  no_new_data:", out_stale["no_new_data"])
 
-# Stale detection
+# Step 4: Use stale detection to spot identical or suspiciously similar datasets.
 df_b = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
 df_c = pd.DataFrame({"id": [1, 2, 3], "x": [10, 20, 30]})
 out = detect_identical_or_stale(df_b, df_c, key_column="id")
@@ -492,3 +518,184 @@ print("  passed:", result_defaults["passed"])
 print("  volume pct_change:", result_defaults["volume"]["pct_change"])
 print("  (default fail_on_volume_drop_pct=-25; -60% triggers fail)")
 
+
+# =============================================================================
+# SECTION 10: Dimensions and thresholds overview
+# =============================================================================
+# Show available data quality dimensions and the default pipeline thresholds.
+
+print("SECTION 10 — Dimensions and thresholds overview")
+print("Available dimensions (use with dimensions_filter and in reports):")
+print(DIMENSIONS)
+print("\nDefault pipeline thresholds (used when use_default_thresholds=True):")
+print(DEFAULT_THRESHOLDS)
+print(
+    "\nThese defaults are applied by compare_snapshots when "
+    "use_default_thresholds=True and you do not pass explicit values."
+)
+print("\n" + "=" * 80 + "\n")
+
+
+# =============================================================================
+# SECTION 11: JSON rules and suggestions_to_json
+# =============================================================================
+# Demonstrate generating suggestions, converting to JSON-like rules, and running them.
+
+print("SECTION 11 — JSON rules and suggestions_to_json")
+
+# Step 1: Define a simple dataset.
+df = pd.DataFrame({
+    "id": [1, 2, 3, 4],
+    "status": ["active", "inactive", "active", "active"],
+    "score": [90, 85, 95, 88],
+})
+
+# Step 2: Generate suggestions and convert them to JSON rules.
+checker = DataQualityChecker(df, dataset_name="JSON Rules Demo")
+suggestions = checker.generate_suggestions()
+json_rules = suggestions_to_json(suggestions)
+
+print("JSON-style rules derived from suggestions:")
+print(json_rules)
+
+# Step 3: Run the JSON rules and inspect results.
+checker = DataQualityChecker(df, dataset_name="JSON Rules Demo (from JSON)")
+checker.run_rules_from_json(json_rules)
+results = checker.get_results()
+print("\nValidation results from JSON rules:")
+print(results[["column", "rule", "success_rate"]].to_string(index=False))
+print("\n" + "=" * 80 + "\n")
+
+
+# =============================================================================
+# SECTION 12: Cross-dataset reconciliation and comparison
+# =============================================================================
+# Show reconcile_on_key, DatasetComparator, run_same_rules_on_two_datasets, and compare_two_reports.
+
+print("SECTION 12 — Cross-dataset reconciliation and comparison")
+
+# Step 1: Create two toy datasets with overlapping and mismatched keys.
+df_left = pd.DataFrame({
+    "order_id": ["O1", "O2", "O3", "O4"],
+    "amount": [100, 200, 300, 400],
+})
+df_right = pd.DataFrame({
+    "order_id": ["O2", "O3", "O4", "O5"],
+    "amount": [210, 290, 400, 500],
+})
+results_recon: list[dict] = []
+
+# Step 2: Direct reconciliation on key.
+summary = reconcile_on_key(
+    df_left,
+    df_right,
+    key_column="order_id",
+    results=results_recon,
+    include_similarity=True,
+    similarity_threshold=0.9,
+    right_name="right",
+)
+print("Direct reconcile_on_key summary:")
+print(summary)
+
+diffs = get_reconciliation_diffs(df_left, df_right, key_column="order_id", column="amount")
+print("\nRows where 'amount' differs between left and right:")
+print(diffs.to_string(index=False))
+
+# Step 3: Use DatasetComparator facade for the same reconciliation pattern.
+comp = DatasetComparator(df_left, df_right, key_column="order_id", name_a="Left", name_b="Right")
+comp_summary = comp.reconcile(include_similarity=True, similarity_threshold=0.9)
+print("\nDatasetComparator reconcile summary:")
+print(comp_summary)
+
+# Step 4: Run the same rules on both datasets and compare reports.
+
+def _recon_rules(df_rules, results_rules):
+    c = DataQualityChecker(df_rules, dataset_name="")
+    c.df = df_rules
+    c.results = results_rules
+    c.expect_column_values_to_not_be_null("order_id")
+    c.expect_column_values_to_be_in_range("amount", 0, 1_000_000)
+
+
+report_a, report_b = run_same_rules_on_two_datasets(
+    df_left,
+    df_right,
+    _recon_rules,
+    dataset_name_a="Left",
+    dataset_name_b="Right",
+)
+comparison = compare_two_reports(report_a, report_b)
+
+print("\ncompare_two_reports overall scores:")
+print("  Left overall_health_score:", comparison["overall_health_score_a"])
+print("  Right overall_health_score:", comparison["overall_health_score_b"])
+print("  Delta:", comparison["delta"])
+print("\nSample per-dimension diffs:")
+for dim, info in list(comparison["per_dimension_diffs"].items())[:3]:
+    print(f"  {dim}: {info}")
+print("\n" + "=" * 80 + "\n")
+
+
+# =============================================================================
+# SECTION 13: Similarity summaries and drill-down
+# =============================================================================
+# Demonstrate similarity analysis between two text columns and how to summarize it.
+
+print("SECTION 13 — Similarity summaries and drill-down")
+
+# Step 1: Create a DataFrame with two similar-but-not-identical text columns.
+df = pd.DataFrame({
+    "name_a": ["Alice Smith", "Bob Jones", "Charlie Brown", "Daisy Ray"],
+    "name_b": ["Alice Smtih", "Bob Jones", "Charlie B.", "Daisy Rae"],
+})
+results_sim: list[dict] = []
+
+# Step 2: Run Levenshtein similarity analysis and append to results.
+similarity_analysis = analyze_column_similarity_levenshtein(
+    df,
+    results_sim,
+    "name_a",
+    "name_b",
+    similarity_threshold=0.8,
+)
+print("Similarity analysis summary dict:")
+print({k: v for k, v in similarity_analysis.items() if k != "detailed_comparisons"})
+
+# Step 3: Build a summary table and a filtered detailed view.
+summary_table = get_similarity_summary_table(results_sim, similarity_threshold=0.8)
+print("\nSimilarity summary table:")
+print(summary_table.to_string(index=False))
+
+filtered_detail = get_detailed_similarity_comparisons(
+    results_sim,
+    "name_a",
+    "name_b",
+    min_similarity=0.0,
+    max_similarity=1.0,
+)
+print("\nDetailed comparisons (all rows, rounded):")
+print(filtered_detail.to_string(index=False))
+print("\n" + "=" * 80 + "\n")
+
+
+# =============================================================================
+# SECTION 14: HTML docs helpers
+# =============================================================================
+# Show how to obtain HTML strings for docs (useful in notebooks / UI environments).
+
+print("SECTION 14 — HTML docs helpers")
+
+readme_html = get_readme_html()
+usage_html = get_usage_html()
+arch_html = get_architecture_html()
+getting_started_html = get_getting_started_html()
+pipeline_html = get_pipeline_html()
+
+print("HTML snippets (first 400 characters each):\n")
+print("README HTML snippet:\n", readme_html[:400], "...\n")
+print("USAGE HTML snippet:\n", usage_html[:400], "...\n")
+print("ARCHITECTURE HTML snippet:\n", arch_html[:400], "...\n")
+print("GETTING_STARTED HTML snippet:\n", getting_started_html[:400], "...\n")
+print("PIPELINE HTML snippet:\n", pipeline_html[:400], "...\n")
+print("In a notebook, you would typically display these with your environment's HTML display utilities.")

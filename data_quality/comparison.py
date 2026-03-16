@@ -17,15 +17,15 @@ def _key_set(df, key_column):
 
 
 def reconcile_on_key(
-    df_left,
-    df_right,
+    df_left: pd.DataFrame,
+    df_right: pd.DataFrame,
     key_column,
     results,
     columns_to_compare=None,
-    include_similarity=False,
-    similarity_threshold=0.8,
-    right_name="B",
-):
+    include_similarity: bool = False,
+    similarity_threshold: float = 0.8,
+    right_name: str = "B",
+) -> dict:
     """
     Join two DataFrames on key_column, assess join quality, then compute exact match rate
     (and optionally similarity) per compared column. Append all metrics to results with dimension Consistency.
@@ -145,8 +145,17 @@ def reconcile_on_key(
     }
 
 
-def get_reconciliation_diffs(df_left, df_right, key_column, column):
-    """Return a DataFrame of rows where the two sides differ for the given column (key value, left value, right value)."""
+def get_reconciliation_diffs(
+    df_left: pd.DataFrame,
+    df_right: pd.DataFrame,
+    key_column,
+    column: str,
+) -> pd.DataFrame:
+    """
+    Return rows where the two sides differ for the given column.
+
+    The result has columns: key (or key tuple as string), value_left, value_right.
+    """
     key_list = normalize_columns(key_column)
     merged = pd.merge(
         df_left,
@@ -176,13 +185,13 @@ def get_reconciliation_diffs(df_left, df_right, key_column, column):
 
 
 def run_same_rules_on_two_datasets(
-    df_a,
-    df_b,
+    df_a: pd.DataFrame,
+    df_b: pd.DataFrame,
     rules_runner,
-    dataset_name_a="A",
-    dataset_name_b="B",
+    dataset_name_a: str = "A",
+    dataset_name_b: str = "B",
     critical_columns=None,
-):
+) -> tuple:
     """
     Run the same rules (expectations/similarity) on both DataFrames via rules_runner(df, results).
     Build two comprehensive reports and return (report_a, report_b).
@@ -203,7 +212,7 @@ def run_same_rules_on_two_datasets(
     return report_a, report_b
 
 
-def compare_two_reports(report_a, report_b):
+def compare_two_reports(report_a: dict, report_b: dict) -> dict:
     """
     Compare two comprehensive report dicts. Returns a dict with overall scores, deltas,
     per_dimension scores for each, and per_rule_diffs (list of rule/column with success_rate_a, success_rate_b, delta).
@@ -265,10 +274,15 @@ def compare_two_reports(report_a, report_b):
 
 class DatasetComparator:
     """
-    Optional facade: holds two DataFrames and key column(s); provides .reconcile() and .run_same_rules().
+    Convenience wrapper around the comparison helpers.
+
+    Holds two DataFrames plus key information and exposes:
+    - reconcile(): run join-quality and optional similarity checks
+    - run_same_rules(): run the same rules via a rules_runner on both datasets
+    - get_comparison_report(): run rules then compare the two reports
     """
 
-    def __init__(self, df_a, df_b, key_column, name_a="A", name_b="B"):
+    def __init__(self, df_a: pd.DataFrame, df_b: pd.DataFrame, key_column, name_a: str = "A", name_b: str = "B") -> None:
         self.df_a = df_a
         self.df_b = df_b
         self.key_column = key_column
@@ -279,10 +293,10 @@ class DatasetComparator:
     def reconcile(
         self,
         columns_to_compare=None,
-        include_similarity=False,
-        similarity_threshold=0.8,
-    ):
-        """Run reconcile_on_key and append to internal results. Returns summary dict."""
+        include_similarity: bool = False,
+        similarity_threshold: float = 0.8,
+    ) -> dict:
+        """Run reconcile_on_key and append to internal results; return summary dict."""
         summary = reconcile_on_key(
             self.df_a,
             self.df_b,
@@ -295,8 +309,8 @@ class DatasetComparator:
         )
         return summary
 
-    def run_same_rules(self, rules_runner, critical_columns=None):
-        """Run same rules on both datasets; return (report_a, report_b). Does not use self.results."""
+    def run_same_rules(self, rules_runner, critical_columns=None) -> tuple:
+        """Run same rules on both datasets; return (report_a, report_b)."""
         return run_same_rules_on_two_datasets(
             self.df_a,
             self.df_b,
@@ -306,7 +320,7 @@ class DatasetComparator:
             critical_columns=critical_columns,
         )
 
-    def get_comparison_report(self, rules_runner, critical_columns=None):
-        """Run same rules on both, then return compare_two_reports(report_a, report_b)."""
+    def get_comparison_report(self, rules_runner, critical_columns=None) -> dict:
+        """Run same rules on both datasets, then compare the resulting reports."""
         report_a, report_b = self.run_same_rules(rules_runner, critical_columns=critical_columns)
         return compare_two_reports(report_a, report_b)

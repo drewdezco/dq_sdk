@@ -10,7 +10,7 @@ from data_quality.utils import normalize_columns
 
 
 def _record(results, column, rule, success_rate, details, dimension):
-    """Append a result dict to the results list. dimension must be one of data_quality.dimensions.DIMENSIONS."""
+    """Append one expectation result dict to the results list."""
     results.append({
         "column": column,
         "rule": rule,

@@ -10,7 +10,8 @@ import pandas as pd
 from data_quality.utils import classify_data_type, calculate_quality_scores
 from data_quality.dimensions import DIMENSIONS
 
-# Default options for suggestion generation
+# Default options for suggestion generation.
+# See analyze_column_for_suggestions / generate_suggestions for meaning of each key.
 DEFAULT_OPTIONS = {
     "null_rate_threshold": 0.05,  # Suggest not_null if null rate below this
     "uniqueness_threshold": 0.95,  # Suggest unique if uniqueness above this

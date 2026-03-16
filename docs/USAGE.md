@@ -231,7 +231,40 @@ diff = compare_two_reports(report_a, report_b)
 
 ## Pipeline integration
 
-Compare a current dataset to a baseline (e.g. same data one week earlier) and evaluate degradation thresholds. Use this to detect data stopped coming in, quality below a minimum, schema changes, or identical/stale data. The library returns a single result dict; your pipeline decides whether to alert or stop ingestion.
+Compare a current dataset to a baseline (for example, the same table one week earlier) and evaluate **schema**, **volume**, **staleness**, and **health thresholds** in one call. The pipeline helpers are thin, testable functions; your ingestion or orchestration layer decides whether to **alert**, **stop**, or **proceed** based on the returned result dict.
+
+This section is the source for `get_pipeline_markdown()` / `get_pipeline_html()` in `data_quality.docs_utils`.
+
+### Core helpers
+
+- **`compare_schema(df_baseline, df_current, check_dtypes=False)`**  
+  Return added / removed columns and, optionally, dtype changes between two snapshots.
+
+- **`compare_volume(df_baseline, df_current, date_column=None)`**  
+  Compare row counts and compute `pct_change`. When `date_column` is provided, also compute a `no_new_data` flag based on the max timestamp in each snapshot.
+
+- **`detect_identical_or_stale(df_baseline, df_current, key_column=None, tolerance_pct=0.0)`**  
+  Detect identical or nearly-identical datasets (by row count and key set) and return `{"identical": bool, "stale_warning": bool, "reason": str | None}`.
+
+- **`load_dataframe(source, **read_csv_kwargs)`**  
+  Normalize a snapshot source to a `pandas.DataFrame`. If `source` is already a DataFrame, it is returned unchanged; if it is a path/str, `pd.read_csv` is called.
+
+- **`compare_snapshots(...)`**  
+  High-level baseline vs current comparison that:
+  - runs `compare_schema`, `compare_volume`, and optional `detect_identical_or_stale`
+  - runs a user-supplied `rules_runner(df, results)` on both snapshots
+  - enforces thresholds (`min_overall_health`, per-dimension minimums, `fail_on_schema_change`, `fail_on_volume_drop_pct`)
+  - returns a single dict containing all of the above.
+
+- **`compare_snapshots_multi(snapshots, rules_runner, mode="consecutive"|"baseline", ...)`**  
+  Run `compare_snapshots` across multiple snapshots in order:
+  - `"consecutive"`: compare `(s0, s1)`, `(s1, s2)`, ...
+  - `"baseline"`: compare `(s0, s1)`, `(s0, s2)`, ...
+
+- **`DEFAULT_THRESHOLDS` and `use_default_thresholds`**  
+  A small dict that holds default values (such as `min_overall_health` and `fail_on_volume_drop_pct`). When calling `compare_snapshots(..., use_default_thresholds=True, ...)`, any of these values that you **do not** pass explicitly are filled from `DEFAULT_THRESHOLDS`.
+
+### Typical pipeline call
 
 ```python
 from data_quality import compare_snapshots, DataQualityChecker
@@ -242,24 +275,96 @@ def my_rules(df, results):
     c.expect_column_values_to_not_be_null("id")
     c.expect_column_values_to_be_unique("id")
 
-# Load baseline and current (e.g. from tables or files); paths to CSV also supported
+# Load baseline and current (e.g. from tables, CSV files, or DataFrames)
 result = compare_snapshots(
-    df_baseline, df_current, my_rules,
+    df_baseline,
+    df_current,
+    my_rules,
     min_overall_health=80,
     fail_on_volume_drop_pct=-25,
     date_column="updated_at",
     warn_on_stale=True,
     stale_key_column="id",
 )
+
 if not result["passed"]:
     # Alert or stop ingestion
     print(result["warnings"])
-# result also has schema_changes, volume, comparison, below_threshold
 ```
 
-Optional: pass `use_default_thresholds=True` to apply default `min_overall_health` and `fail_on_volume_drop_pct` when you do not set them. For multiple snapshots in order, use `compare_snapshots_multi(snapshots, rules_runner, mode="consecutive"|"baseline")`; load from CSV with `load_dataframe(path)` or pass paths to `compare_snapshots` / `compare_snapshots_multi`.
+The same pattern is used throughout `examples.py` (Sections 7–9) and in `tests/test_pipeline.py`.
 
-Helpers: `compare_schema`, `compare_volume`, `detect_identical_or_stale` for use without running full rules.
+### Scenarios and examples (see `examples.py`)
+
+The pipeline helpers are demonstrated in detail in `examples.py`:
+
+- **Schema change detection (Section 7 — Pipeline helpers)**  
+  - **What:** Use `compare_schema` to list added/removed columns and optional dtype changes.  
+  - **Why:** Catch breaking schema changes (for example, dropped key columns or renamed metrics) before they hit downstream consumers.  
+  - **Benefit/impact:** Allows you to fail fast or raise a targeted alert when `fail_on_schema_change=True`.  
+  - **Expected result:** `schema_changes["added"]` / `["removed"]` are non-empty; when `check_dtypes=True`, `schema_changes["type_changes"]` holds a list of changed columns.
+
+- **Volume change and no-new-data detection (Section 7)**  
+  - **What:** Use `compare_volume` to compute row-count deltas and the `no_new_data` flag when a date column is provided.  
+  - **Why:** Detect cases where volume drops sharply or no new rows arrive even though a job ran.  
+  - **Benefit/impact:** Lets you enforce `fail_on_volume_drop_pct` and/or alert on `no_new_data=True`.  
+  - **Expected result:**  
+    - `volume["pct_change"]` shows the percent change in row count.  
+    - `volume["no_new_data"]` is `True` when `max(current[date]) <= max(baseline[date])`.
+
+- **Stale data detection on key sets (Section 7)**  
+  - **What:** Use `detect_identical_or_stale` (directly or via `compare_snapshots` with `warn_on_stale=True`) to check whether the current dataset is identical or nearly identical to the baseline.  
+  - **Why:** Spot situations where data is accidentally reloaded or a job re-emits the same slice over and over.  
+  - **Expected result:**  
+    - `stale_warning=True` and a human-readable `reason` when row counts are the same and key sets overlap above the configured tolerance.
+
+- **Single snapshot comparison: baseline vs current (Section 8 — `compare_snapshots`)**  
+  - **What:** Run the same rules on baseline and current, then aggregate the results and apply thresholds.  
+  - **Why:** Detect regression in overall health (or per-dimension scores) and combine this with schema/volume/stale checks.  
+  - **Benefit/impact:** A single `result` dict drives go/no-go decisions.  
+  - **Expected result:**  
+    - `result["passed"]` is `False` when any of the following hold:  
+      - schema change and `fail_on_schema_change=True`  
+      - volume drop below `fail_on_volume_drop_pct`  
+      - overall health below `min_overall_health`  
+      - any dimension below its per-dimension minimum in `min_per_dimension`.  
+    - `result["warnings"]` contains human-readable messages for schema changes, volume drops, and stale datasets.
+
+- **Multi-snapshot comparison (Section 9 — `compare_snapshots_multi`)**  
+  - **What:** Compare multiple snapshots either consecutively (`mode="consecutive"`) or all against the first (`mode="baseline"`).  
+  - **Why:** Track how health and volume evolve over time, or validate a long migration where each step must not regress.  
+  - **Expected result:**  
+    - Returned dict has `"results"` (a list of `compare_snapshots` outputs, each annotated with `baseline_index`, `current_index`, `baseline_label`, `current_label`) and a top-level `"passed"` that is `True` only if all pairs passed.
+
+- **CSV path support and `load_dataframe` (Section 9)**  
+  - **What:** Pass file paths directly into `compare_snapshots` or `compare_snapshots_multi`; internally, `load_dataframe` converts them to DataFrames.  
+  - **Why:** Make it easy to plug in CSV exports or files staged by your orchestration tool.  
+  - **Expected result:**  
+    - A call such as `compare_snapshots("baseline.csv", "current.csv", rules_runner, ...)` behaves the same as if you had passed DataFrames, with `load_dataframe` handling `pd.read_csv`.
+
+- **Default thresholds (Sections 9–10)**  
+  - **What:** Use `use_default_thresholds=True` so that `compare_snapshots` fills in `min_overall_health` and `fail_on_volume_drop_pct` from `DEFAULT_THRESHOLDS` when you do not pass explicit values.  
+  - **Why:** Provide safe defaults without hardcoding magic numbers throughout the codebase.  
+  - **Expected result:**  
+    - In `examples.py`, a large volume drop triggers a failure even when `fail_on_volume_drop_pct` is omitted, because the default is applied.
+
+At the end of this section in `examples.py`, you can see all of these scenarios in action; the examples are designed to be copy-paste friendly for Databricks and other notebook environments.
+
+### Interpreting the pipeline result dict
+
+`compare_snapshots` returns a nested dict. The most important keys are:
+
+- **`passed: bool`** — overall go/no-go flag.
+- **`warnings: list[str]`** — human-readable messages explaining why a check failed or what to investigate.
+- **`schema_changes`** — output of `compare_schema` (added/removed columns and optional `type_changes` list).
+- **`volume`** — output of `compare_volume` (`row_count_baseline`, `row_count_current`, `pct_change`, `no_new_data`).
+- **`stale`** — output of `detect_identical_or_stale` when `warn_on_stale=True` (may be empty otherwise).
+- **`comparison`** — result of `compare_two_reports`, summarizing baseline vs current health and per-dimension/per-rule diffs.
+- **`below_threshold`** — dict with:  
+  - `overall: bool` — whether overall health is below `min_overall_health`.  
+  - `dimensions: list[str]` — names of dimensions whose scores fell below their respective minimums.
+
+Most pipelines only need to branch on `passed` and log or surface `warnings`, but all of the nested structures are available if you want to build dashboards or more detailed alerts.
 
 ## Test suite
 
