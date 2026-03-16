@@ -16,6 +16,131 @@ def _key_set(df, key_column):
     return set(keys.dropna().apply(tuple, axis=1).unique())
 
 
+def suggest_key_columns(
+    df_left: pd.DataFrame,
+    df_right: pd.DataFrame,
+    *,
+    min_uniqueness: float = 0.9,
+    max_null_rate: float = 0.1,
+    max_candidates: int = 3,
+) -> list[str]:
+    """
+    Suggest candidate key columns shared by two DataFrames.
+
+    A column is considered a key candidate when ALL of the following hold on BOTH sides:
+        - The column exists in both DataFrames
+        - Null-rate <= max_null_rate
+        - Uniqueness (nunique / non-null) >= min_uniqueness
+
+    Args:
+        df_left: Left DataFrame.
+        df_right: Right DataFrame.
+        min_uniqueness: Minimum required uniqueness ratio (0-1) per side.
+        max_null_rate: Maximum allowed null ratio (0-1) per side.
+        max_candidates: Maximum number of column names to return, ordered by strongest uniqueness.
+
+    Returns:
+        List of column names that are plausible primary-key candidates, sorted by
+        descending geometric mean of left/right uniqueness.
+    """
+    shared_cols = [c for c in df_left.columns if c in df_right.columns]
+    candidates: list[tuple[str, float]] = []
+
+    for col in shared_cols:
+        left_series = df_left[col]
+        right_series = df_right[col]
+
+        left_non_null = left_series.notna().sum()
+        right_non_null = right_series.notna().sum()
+        if left_non_null == 0 or right_non_null == 0:
+            continue
+
+        left_null_rate = 1.0 - (left_non_null / len(df_left)) if len(df_left) else 1.0
+        right_null_rate = 1.0 - (right_non_null / len(df_right)) if len(df_right) else 1.0
+        if left_null_rate > max_null_rate or right_null_rate > max_null_rate:
+            continue
+
+        left_uniqueness = left_series.nunique(dropna=True) / left_non_null
+        right_uniqueness = right_series.nunique(dropna=True) / right_non_null
+        if left_uniqueness < min_uniqueness or right_uniqueness < min_uniqueness:
+            continue
+
+        # Use geometric-like mean to reward high uniqueness on both sides.
+        score = float(np.sqrt(left_uniqueness * right_uniqueness))
+        candidates.append((col, score))
+
+    # Sort by score descending and return column names only.
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    return [c for c, _ in candidates[:max_candidates]]
+
+
+def reconcile_with_auto_key(
+    df_left: pd.DataFrame,
+    df_right: pd.DataFrame,
+    results,
+    *,
+    columns_to_compare=None,
+    include_similarity: bool = False,
+    similarity_threshold: float = 0.8,
+    right_name: str = "B",
+    min_uniqueness: float = 0.9,
+    max_null_rate: float = 0.1,
+) -> dict:
+    """
+    Automatically pick a key column, then delegate to reconcile_on_key.
+
+    This is a convenience wrapper around suggest_key_columns + reconcile_on_key for
+    quick exploration. It is intended for ad-hoc analysis and notebooks rather than
+    strict production contracts where keys are known.
+
+    Args:
+        df_left: Left DataFrame.
+        df_right: Right DataFrame.
+        results: List that reconciliation results will be appended to.
+        columns_to_compare: Optional subset of columns to reconcile; by default all
+            common non-key columns are compared.
+        include_similarity: If True, compute text similarity metrics as well.
+        similarity_threshold: Threshold for considering pairs \"similar\".
+        right_name: Label for the right-hand dataset in rule labels.
+        min_uniqueness: Minimum required uniqueness ratio (0-1) for an auto-picked key.
+        max_null_rate: Maximum allowed null ratio (0-1) for an auto-picked key.
+
+    Returns:
+        The same summary dict as reconcile_on_key, with an extra field:
+            - auto_key_column: the column name that was selected.
+
+    Raises:
+        ValueError: If no suitable key column can be inferred.
+    """
+    candidates = suggest_key_columns(
+        df_left,
+        df_right,
+        min_uniqueness=min_uniqueness,
+        max_null_rate=max_null_rate,
+        max_candidates=1,
+    )
+    if not candidates:
+        raise ValueError(
+            "Could not infer a key column automatically. "
+            "Try passing key_column explicitly to reconcile_on_key, "
+            "or relax min_uniqueness / max_null_rate."
+        )
+
+    key_column = candidates[0]
+    summary = reconcile_on_key(
+        df_left,
+        df_right,
+        key_column=key_column,
+        results=results,
+        columns_to_compare=columns_to_compare,
+        include_similarity=include_similarity,
+        similarity_threshold=similarity_threshold,
+        right_name=right_name,
+    )
+    summary["auto_key_column"] = key_column
+    return summary
+
+
 def reconcile_on_key(
     df_left: pd.DataFrame,
     df_right: pd.DataFrame,

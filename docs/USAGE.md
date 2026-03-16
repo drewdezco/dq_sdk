@@ -201,6 +201,19 @@ checker.results = results
 report = checker.get_comprehensive_results()
 ```
 
+**Auto-detect the key (quick exploration)**
+
+If you don't know the key column up front, you can ask the library to infer a reasonable key candidate from the shared columns, then run reconciliation:
+
+```python
+from data_quality import reconcile_with_auto_key
+
+results = []
+summary = reconcile_with_auto_key(df_left, df_right, results, right_name="source")
+print("Auto-picked key:", summary["auto_key_column"])
+print(summary["join_quality"])
+```
+
 Or use the **DatasetComparator** facade:
 
 ```python
@@ -228,6 +241,32 @@ report_a, report_b = run_same_rules_on_two_datasets(
 diff = compare_two_reports(report_a, report_b)
 # diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
 ```
+
+**Compare health on shared columns only**
+
+If the two datasets have different schemas, you can still compare “like-for-like” by running
+rules only on the intersection of columns:
+
+```python
+shared_cols = sorted(set(df_a.columns) & set(df_b.columns))
+
+def shared_rules(df, results):
+    c = DataQualityChecker(df, dataset_name="")
+    c.df, c.results = df, results
+
+    if "id" in shared_cols:
+        c.expect_column_values_to_not_be_null("id")
+        c.expect_column_values_to_be_unique("id")
+
+    if "status" in shared_cols:
+        c.expect_column_values_to_not_be_null("status")
+
+report_a, report_b = run_same_rules_on_two_datasets(df_a, df_b, shared_rules)
+diff = compare_two_reports(report_a, report_b)
+```
+
+This produces a report comparison where each `(column, rule)` exists on both sides, making the
+diff easier to interpret even when the overall schemas differ.
 
 ## Pipeline integration
 

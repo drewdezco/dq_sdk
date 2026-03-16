@@ -350,6 +350,15 @@ checker = DataQualityChecker(df_left, dataset_name=&quot;Warehouse&quot;)
 checker.results = results
 report = checker.get_comprehensive_results()
 </code></pre>
+<p><strong>Auto-detect the key (quick exploration)</strong></p>
+<p>If you don't know the key column up front, you can ask the library to infer a reasonable key candidate from the shared columns, then run reconciliation:</p>
+<pre><code class="language-python">from data_quality import reconcile_with_auto_key
+
+results = []
+summary = reconcile_with_auto_key(df_left, df_right, results, right_name=&quot;source&quot;)
+print(&quot;Auto-picked key:&quot;, summary[&quot;auto_key_column&quot;])
+print(summary[&quot;join_quality&quot;])
+</code></pre>
 <p>Or use the <strong>DatasetComparator</strong> facade:</p>
 <pre><code class="language-python">from data_quality import DatasetComparator
 
@@ -372,6 +381,27 @@ report_a, report_b = run_same_rules_on_two_datasets(
 diff = compare_two_reports(report_a, report_b)
 # diff has overall_health_score_a/b, delta, per_dimension_diffs, per_rule_diffs
 </code></pre>
+<p><strong>Compare health on shared columns only</strong></p>
+<p>If the two datasets have different schemas, you can still compare “like-for-like” by running<br />
+rules only on the intersection of columns:</p>
+<pre><code class="language-python">shared_cols = sorted(set(df_a.columns) &amp; set(df_b.columns))
+
+def shared_rules(df, results):
+    c = DataQualityChecker(df, dataset_name=&quot;&quot;)
+    c.df, c.results = df, results
+
+    if &quot;id&quot; in shared_cols:
+        c.expect_column_values_to_not_be_null(&quot;id&quot;)
+        c.expect_column_values_to_be_unique(&quot;id&quot;)
+
+    if &quot;status&quot; in shared_cols:
+        c.expect_column_values_to_not_be_null(&quot;status&quot;)
+
+report_a, report_b = run_same_rules_on_two_datasets(df_a, df_b, shared_rules)
+diff = compare_two_reports(report_a, report_b)
+</code></pre>
+<p>This produces a report comparison where each <code>(column, rule)</code> exists on both sides, making the<br />
+diff easier to interpret even when the overall schemas differ.</p>
 <h2>Pipeline integration</h2>
 <p>Compare a current dataset to a baseline (for example, the same table one week earlier) and evaluate <strong>schema</strong>, <strong>volume</strong>, <strong>staleness</strong>, and <strong>health thresholds</strong> in one call. The pipeline helpers are thin, testable functions; your ingestion or orchestration layer decides whether to <strong>alert</strong>, <strong>stop</strong>, or <strong>proceed</strong> based on the returned result dict.</p>
 <p>This section is the source for <code>get_pipeline_markdown()</code> / <code>get_pipeline_html()</code> in <code>data_quality.docs_utils</code>.</p>

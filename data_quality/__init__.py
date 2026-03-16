@@ -6,6 +6,7 @@ from data_quality.comparison import (
     compare_two_reports,
     get_reconciliation_diffs,
     reconcile_on_key,
+    reconcile_with_auto_key,
     run_same_rules_on_two_datasets,
 )
 from data_quality.dimensions import DIMENSIONS
@@ -60,6 +61,7 @@ __all__ = [
     "get_usage_markdown",
     "print_docs_overview",
     "load_dataframe",
+    "reconcile_with_auto_key",
     "reconcile_on_key",
     "run_same_rules_on_two_datasets",
 ]

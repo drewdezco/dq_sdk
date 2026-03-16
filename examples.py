@@ -34,6 +34,7 @@ from data_quality import (
     get_reconciliation_diffs,
     load_dataframe,
     print_docs_overview,
+    reconcile_with_auto_key,
     reconcile_on_key,
     run_same_rules_on_two_datasets,
 )
@@ -602,13 +603,27 @@ diffs = get_reconciliation_diffs(df_left, df_right, key_column="order_id", colum
 print("\nRows where 'amount' differs between left and right:")
 print(diffs.to_string(index=False))
 
-# Step 3: Use DatasetComparator facade for the same reconciliation pattern.
+# Step 3: Auto-detect the key for quick exploration (optional convenience helper).
+results_auto: list[dict] = []
+auto_summary = reconcile_with_auto_key(
+    df_left,
+    df_right,
+    results_auto,
+    include_similarity=True,
+    similarity_threshold=0.9,
+    right_name="right",
+)
+print("\nreconcile_with_auto_key summary:")
+print("  auto_key_column:", auto_summary["auto_key_column"])
+print("  join_quality:", auto_summary["join_quality"])
+
+# Step 4: Use DatasetComparator facade for the same reconciliation pattern.
 comp = DatasetComparator(df_left, df_right, key_column="order_id", name_a="Left", name_b="Right")
 comp_summary = comp.reconcile(include_similarity=True, similarity_threshold=0.9)
 print("\nDatasetComparator reconcile summary:")
 print(comp_summary)
 
-# Step 4: Run the same rules on both datasets and compare reports.
+# Step 5: Run the same rules on both datasets and compare reports.
 
 def _recon_rules(df_rules, results_rules):
     c = DataQualityChecker(df_rules, dataset_name="")
@@ -638,11 +653,85 @@ print("\n" + "=" * 80 + "\n")
 
 
 # =============================================================================
-# SECTION 13: Similarity summaries and drill-down
+# SECTION 13: Compare health on shared columns only
+# =============================================================================
+# A common scenario: two datasets share a few columns (e.g., a primary key) but have different schemas.
+# You can still compare "like-for-like" health by running rules only on the shared columns.
+
+print("SECTION 13 — Compare health on shared columns only")
+
+df_a = pd.DataFrame({
+    "id": [1, 2, 3, 4],
+    "status": ["active", "inactive", "active", "active"],
+    "amount": [100, 200, 150, 300],
+    "only_in_a": ["x", "y", "z", "w"],
+})
+
+df_b = pd.DataFrame({
+    "id": [1, 2, 3, 4],
+    "status": ["active", "inactive", None, "active"],  # introduce a null to affect health
+    "score": [0.9, 0.7, 0.8, 0.95],
+    "only_in_b": [True, False, True, True],
+})
+
+shared_cols = sorted(set(df_a.columns) & set(df_b.columns))
+print("Shared columns:", shared_cols)
+
+# Step 1: Get "full" health for each dataset independently (each has its own schema).
+checker_a = DataQualityChecker(df_a, dataset_name="A (full)")
+checker_a.expect_column_values_to_not_be_null("id")
+checker_a.expect_column_values_to_be_unique("id")
+checker_a.expect_column_values_to_not_be_null("status")
+report_a_full = checker_a.get_comprehensive_results(title="A full")
+
+checker_b = DataQualityChecker(df_b, dataset_name="B (full)")
+checker_b.expect_column_values_to_not_be_null("id")
+checker_b.expect_column_values_to_be_unique("id")
+checker_b.expect_column_values_to_not_be_null("status")
+report_b_full = checker_b.get_comprehensive_results(title="B full")
+
+print("\nFull health scores:")
+print("  A overall_health_score:", report_a_full["key_metrics"]["overall_health_score"])
+print("  B overall_health_score:", report_b_full["key_metrics"]["overall_health_score"])
+
+# Step 2: Compare health using only shared columns by running the same rules on both datasets.
+def _shared_rules(df_rules, results_rules):
+    c = DataQualityChecker(df_rules, dataset_name="")
+    c.df, c.results = df_rules, results_rules
+
+    if "id" in shared_cols:
+        c.expect_column_values_to_not_be_null("id")
+        c.expect_column_values_to_be_unique("id")
+    if "status" in shared_cols:
+        c.expect_column_values_to_not_be_null("status")
+
+
+report_a_shared, report_b_shared = run_same_rules_on_two_datasets(
+    df_a,
+    df_b,
+    _shared_rules,
+    dataset_name_a="A (shared-only)",
+    dataset_name_b="B (shared-only)",
+)
+diff_shared = compare_two_reports(report_a_shared, report_b_shared)
+
+print("\nShared-only health scores:")
+print("  A(shared) overall_health_score:", diff_shared["overall_health_score_a"])
+print("  B(shared) overall_health_score:", diff_shared["overall_health_score_b"])
+print("  Delta:", diff_shared["delta"])
+print("\nShared-only per-rule diffs (sample):")
+for row in diff_shared["per_rule_diffs"][:5]:
+    print(" ", row)
+
+print("\n" + "=" * 80 + "\n")
+
+
+# =============================================================================
+# SECTION 14: Similarity summaries and drill-down
 # =============================================================================
 # Demonstrate similarity analysis between two text columns and how to summarize it.
 
-print("SECTION 13 — Similarity summaries and drill-down")
+print("SECTION 14 — Similarity summaries and drill-down")
 
 # Step 1: Create a DataFrame with two similar-but-not-identical text columns.
 df = pd.DataFrame({
@@ -680,11 +769,11 @@ print("\n" + "=" * 80 + "\n")
 
 
 # =============================================================================
-# SECTION 14: HTML docs helpers
+# SECTION 15: HTML docs helpers
 # =============================================================================
 # Show how to obtain HTML strings for docs (useful in notebooks / UI environments).
 
-print("SECTION 14 — HTML docs helpers")
+print("SECTION 15 — HTML docs helpers")
 
 readme_html = get_readme_html()
 usage_html = get_usage_html()

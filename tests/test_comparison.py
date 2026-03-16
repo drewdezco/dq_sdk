@@ -5,6 +5,7 @@ import pandas as pd
 from data_quality import (
     compare_two_reports,
     reconcile_on_key,
+    reconcile_with_auto_key,
     run_same_rules_on_two_datasets,
     DatasetComparator,
     get_reconciliation_diffs,
@@ -93,6 +94,26 @@ def test_get_reconciliation_diffs():
     assert len(diffs) == 1
     assert diffs.iloc[0]["value_left"] == 20
     assert diffs.iloc[0]["value_right"] == 99
+
+
+def test_reconcile_with_auto_key_picks_shared_unique_key():
+    df_left = pd.DataFrame({"order_id": ["O1", "O2", "O3"], "x": [10, 20, 30]})
+    df_right = pd.DataFrame({"order_id": ["O2", "O3", "O4"], "x": [11, 20, 30]})
+    results = []
+    summary = reconcile_with_auto_key(df_left, df_right, results, right_name="R")
+    assert summary["auto_key_column"] == "order_id"
+    assert summary["join_quality"]["matched_pairs"] == 2
+    assert any(r["rule"] == "join quality" for r in results)
+
+
+def test_reconcile_with_auto_key_raises_when_no_candidate_key():
+    # No column is sufficiently unique on both sides to be a key candidate by default.
+    # Both shared columns are low-uniqueness on at least one side.
+    df_left = pd.DataFrame({"k": [1, 1, 1], "x": [1, 1, 1]})
+    df_right = pd.DataFrame({"k": [1, 1, 1], "x": [1, 1, 1]})
+    results = []
+    with pytest.raises(ValueError, match="infer a key column"):
+        reconcile_with_auto_key(df_left, df_right, results)
 
 
 # -------- compare_two_reports --------
